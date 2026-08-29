@@ -10,7 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # __file__ is this file's own location. .resolve() turns it into a full path,
 # then .parent twice climbs from app/database.py up to the backend/ folder.
@@ -37,6 +37,17 @@ engine = create_engine(DATABASE_URL)
 # A factory that makes Session objects. A Session is one short conversation
 # with the database, opened for a single request and closed afterwards.
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+# The shared parent class for every table description in this project.
+#
+# When Python reads a class that inherits from Base, SQLAlchemy quietly writes
+# "there is a table called X with these columns" into Base.metadata. That
+# collected list is what create_tables.py later turns into real CREATE TABLE
+# commands. All five tables must inherit from this same Base, or they end up
+# in separate lists and only some of them get built.
+class Base(DeclarativeBase):
+    pass
 
 
 def get_db():
