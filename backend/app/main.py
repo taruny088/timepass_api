@@ -1,10 +1,13 @@
 """
 The backend application itself.
 
-Phase 1 has no features. It has one endpoint, /health, whose only job is to
-prove the whole chain works:
+/health, from Phase 1, proves the whole chain works:
 
     browser -> FastAPI -> SQLAlchemy -> PostgreSQL
+
+The signup and login endpoints live in auth.py and are plugged in below. This
+file stays small on purpose: its job is to assemble the app, not to hold
+features. Each later phase adds one more router here.
 """
 
 from fastapi import Depends, FastAPI, Response, status
@@ -12,9 +15,15 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app import auth
 from app.database import get_db
 
 app = FastAPI(title="Insta Clone API")
+
+# Plugs in the three endpoints defined in auth.py: /auth/signup, /auth/login
+# and /auth/me. Without this line those endpoints exist as Python code but
+# the app does not serve them.
+app.include_router(auth.router)
 
 
 @app.get("/health")
