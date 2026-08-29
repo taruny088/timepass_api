@@ -1,0 +1,15 @@
+# Virtual environment — thousands of library files.
+# Anyone can rebuild it from requirements.txt, so it must not be committed.
+venv/
+
+# Python's compiled cache files. Generated automatically, never edited by hand.
+__pycache__/
+*.pyc
+
+# SECRETS. Contains the real database password. Must never leave this machine.
+.env
+
+# Editor and operating system clutter
+.vscode/
+.idea/
+Thumbs.db
