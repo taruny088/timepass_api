@@ -1,0 +1,17 @@
+/* This single line pulls in the whole of Tailwind.
+ *
+ * Tailwind gives you small single-purpose class names to put directly on an
+ * element, instead of writing separate CSS. For example:
+ *
+ *     <div class="flex gap-4 p-6 rounded-lg bg-white">
+ *              |     |    |      |         |
+ *              |     |    |      |         white background
+ *              |     |    |      rounded corners
+ *              |     |    padding inside
+ *              |     space between children
+ *              lay the children out in a row
+ *
+ * The tailwindcss() plugin in vite.config.js reads the class names you have
+ * actually used and generates only the CSS for those. Nothing unused ships.
+ */
+@import "tailwindcss";
