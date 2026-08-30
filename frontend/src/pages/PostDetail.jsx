@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import CommentList from '../components/CommentList'
 import Header from '../components/Header'
 import PostCard from '../components/PostCard'
 
@@ -44,6 +45,15 @@ export default function PostDetail() {
     }
   }, [postId])
 
+  // Keeps the post's comment_count in step when a comment is added or
+  // removed, so the number does not go stale while you are looking at it.
+  function handleCommentCountChange(delta) {
+    setPost((current) => ({
+      ...current,
+      comment_count: current.comment_count + delta,
+    }))
+  }
+
   async function handleDelete(id) {
     if (!window.confirm('Delete this post? This cannot be undone.')) return
 
@@ -75,7 +85,16 @@ export default function PostDetail() {
             still only shows on your own posts, which PostCard decides. The
             feed does not pass it, so no delete buttons appear there. */}
         {!loading && !error && post && (
-          <PostCard post={post} onDelete={handleDelete} />
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {/* showCommentsLink is off here: this page draws the actual
+                comments below, so a link to itself would be pointless. */}
+            <PostCard
+              post={post}
+              onDelete={handleDelete}
+              showCommentsLink={false}
+            />
+            <CommentList post={post} onCountChange={handleCommentCountChange} />
+          </div>
         )}
       </main>
     </div>

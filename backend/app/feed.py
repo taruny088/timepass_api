@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import Follow, Post, User
+from app.post_view import build_post_list
 from app.schemas import PostOut
 
 router = APIRouter(prefix="/feed", tags=["feed"])
@@ -45,7 +46,7 @@ def read_feed(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[Post]:
+) -> list[PostOut]:
     """Return posts written by the people this user follows, newest first.
 
     THE JOIN, in plain English:
@@ -128,10 +129,14 @@ def read_feed(
         .limit(limit)
     )
 
-    posts = db.scalars(statement).all()
+    posts = list(db.scalars(statement).all())
 
+    # Attach like and comment counts, and whether this viewer liked each one.
+    # build_post_list does that in a fixed number of queries however many
+    # posts are on the page -- see post_view.py for why that matters.
+    #
     # An empty list is a perfectly normal answer -- it means this person
     # follows nobody yet, or the people they follow have not posted. That is
     # not an error, so it is a 200 with [], never a 404. The website turns it
     # into a friendly message.
-    return list(posts)
+    return build_post_list(db, posts, current_user)

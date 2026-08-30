@@ -10,11 +10,12 @@ two are allowed to show different things.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import Follow, Post, User
+from app.post_view import build_post_list
 from app.schemas import PostOut, UserProfile
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -128,7 +129,7 @@ def read_user_posts(
     username: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[Post]:
+) -> list[PostOut]:
     """Return every post by this user, newest first.
 
     An empty list is a perfectly normal answer for someone who has not posted
@@ -140,13 +141,19 @@ def read_user_posts(
     # This ordering is exactly what the index on (user_id, created_at DESC)
     # was built for, so PostgreSQL can read the rows in order rather than
     # fetching them all and sorting.
-    posts = db.scalars(
-        select(Post)
-        .where(Post.user_id == user.id)
-        .order_by(Post.created_at.desc())
-    ).all()
+    posts = list(
+        db.scalars(
+            select(Post)
+            .where(Post.user_id == user.id)
+            .order_by(Post.created_at.desc())
+            # Every post here has the same author, so this saves only one
+            # query -- but it keeps every post-returning endpoint written the
+            # same way, which matters more than the single query saved.
+            .options(selectinload(Post.author))
+        ).all()
+    )
 
-    return list(posts)
+    return build_post_list(db, posts, current_user)
 
 
 @router.post(

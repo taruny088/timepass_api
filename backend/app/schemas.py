@@ -319,4 +319,60 @@ class PostOut(BaseModel):
     # Pydantic follow it.
     author: UserSummary
 
+    # --- Phase 8 -----------------------------------------------------------
+    #
+    # Counted when asked, never stored on the post row. PLAN.md section 6 is
+    # explicit about this one:
+    #
+    #   "I am not storing a like_count number on each post... if I store the
+    #    number separately, it can drift out of step with reality. Someone
+    #    deletes a like but the number does not go down, and now my app shows
+    #    a lie that is very hard to trace."
+    like_count: int = 0
+    comment_count: int = 0
+
+    # Have I -- the person asking -- liked this post?
+    #
+    # Like is_following in Phase 6, this is a fact about the VIEWER AND the
+    # post together, so the same post answers differently for different
+    # people. It exists so the heart knows whether to start full or empty.
+    is_liked: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CommentCreate(BaseModel):
+    """What someone must send to POST /posts/{id}/comments.
+
+    Only the text. Who wrote it comes from the token and which post it is
+    under comes from the address, so neither can be chosen by the browser.
+    """
+
+    body: str = Field(..., min_length=1, max_length=2200, examples=["nice shot"])
+
+    @field_validator("body")
+    @classmethod
+    def not_only_spaces(cls, value: str) -> str:
+        """Trim, and refuse a comment that is nothing but whitespace.
+
+        min_length=1 above would happily accept "   ", which looks like an
+        empty comment on screen. This closes that.
+        """
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Comment cannot be empty.")
+        return cleaned
+
+
+class CommentOut(BaseModel):
+    """One comment, as sent back to the browser."""
+
+    id: int
+    body: str
+    created_at: datetime
+
+    # The author is nested as a UserSummary, which has no email -- the same
+    # protection as post authors.
+    author: UserSummary
+
     model_config = ConfigDict(from_attributes=True)

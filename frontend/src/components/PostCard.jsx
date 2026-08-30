@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import LikeButton from './LikeButton'
 
 // One post, drawn once, used everywhere.
 //
@@ -15,10 +16,17 @@ import { useAuth } from '../auth/AuthContext'
 // design lands in both at once.
 //
 // PROPS are the values a component is given by whoever draws it. Here:
-//   post      the post to draw
-//   onDelete  optional. If given, a Delete button appears on your own posts
-//             and this is called with the post id when it is clicked.
-export default function PostCard({ post, onDelete }) {
+//   post              the post to draw
+//   onDelete          optional. If given, a Delete button appears on your
+//                     own posts, called with the post id when clicked.
+//   showCommentsLink  optional. The feed shows a "View all 3 comments" link;
+//                     the post page draws the real comments instead, so it
+//                     turns this off.
+export default function PostCard({
+  post,
+  onDelete,
+  showCommentsLink = true,
+}) {
   const { user: me } = useAuth()
 
   // Only affects what is drawn. The backend checks ownership again on every
@@ -69,8 +77,30 @@ export default function PostCard({ post, onDelete }) {
       </Link>
 
       <div className="px-4 py-3">
+        {/* The heart owns its own state, because it changes before the
+            server replies. See LikeButton for why. */}
+        <LikeButton post={post} />
+
         {post.caption && (
-          <p className="whitespace-pre-wrap text-slate-800">{post.caption}</p>
+          <p className="mt-2 whitespace-pre-wrap text-slate-800">
+            {post.caption}
+          </p>
+        )}
+
+        {/* A link rather than the comments themselves. The feed shows only
+            the count, so scrolling it never fetches comment data; the full
+            thread lives on the post's own page. */}
+        {showCommentsLink && (
+          <Link
+            to={`/post/${post.id}`}
+            className="mt-1 block text-sm text-slate-500 hover:underline"
+          >
+            {post.comment_count === 0
+              ? 'Add a comment'
+              : post.comment_count === 1
+                ? 'View 1 comment'
+                : `View all ${post.comment_count} comments`}
+          </Link>
         )}
         {/* Stored as UTC, shown in the reader's own local time -- the rule
             set back in Phase 2 when created_at was given a timezone. */}

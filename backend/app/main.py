@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import auth, feed, posts, users
+from app import auth, comments, feed, likes, posts, users
 from app.database import get_db
 
 app = FastAPI(title="Insta Clone API")
@@ -57,6 +57,8 @@ app.include_router(auth.router)    # /auth/signup, /auth/login, /auth/me
 app.include_router(posts.router)   # /posts
 app.include_router(users.router)   # /users/{username}
 app.include_router(feed.router)    # /feed
+app.include_router(likes.router)   # /posts/{id}/like
+app.include_router(comments.router)  # /posts/{id}/comments, /comments/{id}
 
 
 @app.get("/health")

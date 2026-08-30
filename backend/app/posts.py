@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import Post, User
+from app.post_view import build_post
 from app.schemas import PostCreate, PostOut
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -33,7 +34,7 @@ def create_post(
     payload: PostCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Post:
+) -> PostOut:
     """Create a post owned by whoever is logged in."""
     post = Post(
         # The author comes from the TOKEN, not from the request body.
@@ -53,7 +54,10 @@ def create_post(
     # present in the reply.
     db.refresh(post)
 
-    return post
+    # A brand new post has no likes and no comments, but it is built through
+    # the same function as every other post so the reply has exactly the same
+    # shape. The website never has to special-case a just-created post.
+    return build_post(db, post, current_user)
 
 
 @router.get("/{post_id}", response_model=PostOut, summary="View one post")
@@ -64,7 +68,7 @@ def read_post(
     # anyone logged in may view any post -- but naming it as a dependency is
     # what makes a token mandatory.
     current_user: User = Depends(get_current_user),
-) -> Post:
+) -> PostOut:
     """Return one post by its id."""
     post = db.get(Post, post_id)
 
@@ -74,7 +78,7 @@ def read_post(
             detail="Post not found.",
         )
 
-    return post
+    return build_post(db, post, current_user)
 
 
 @router.delete(

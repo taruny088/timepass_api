@@ -7,9 +7,11 @@ allowed to do what. Its only job is to say what columns exist and what each
 one is allowed to hold.
 
 Tables so far:
-  users    (Phase 2)
-  posts    (Phase 5)
-  follows  (Phase 6)
+  users     (Phase 2)
+  posts     (Phase 5)
+  follows   (Phase 6)
+  likes     (Phase 8)
+  comments  (Phase 8)
 """
 
 from datetime import datetime
@@ -331,3 +333,120 @@ class Follow(Base):
 
     def __repr__(self) -> str:
         return f"<Follow follower={self.follower_id} following={self.following_id}>"
+
+
+class Like(Base):
+    """One person liking one post.
+
+    Shaped exactly like Follow: no id column, and a COMPOSITE PRIMARY KEY
+    made of the two columns together.
+
+    PLAN.md section 6 explains why that matters here:
+
+        "the database now physically refuses to store the same person liking
+         the same post twice. If my code accidentally sends the like twice,
+         the database blocks the second one. I do not need to write any 'have
+         they already liked this?' check in my code."
+
+    That is worth more in this phase than anywhere else. The heart button
+    updates the screen before the server answers, so a double tap sending two
+    requests is not a rare accident -- it is expected.
+    """
+
+    __tablename__ = "likes"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("posts.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        # PLAN.md asks for an index on post_id, "because I often count how
+        # many likes one post has".
+        #
+        # The composite primary key already indexes user_id, since that is
+        # its FIRST column -- so "which posts did this person like?" is
+        # covered for free. Counting the likes ON a post filters by post_id,
+        # which is the second column, so it needs an index of its own.
+        #
+        # Identical reasoning to the follows table in Phase 6.
+        Index("ix_likes_post_id", "post_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Like user={self.user_id} post={self.post_id}>"
+
+
+class Comment(Base):
+    """One comment written under one post.
+
+    Unlike likes and follows, this table DOES have an id column. The
+    difference is what you need to point at.
+
+    A like has nothing to say beyond "this person liked this post", so the
+    pair of people-and-post IS the whole fact, and that pair identifies it.
+    A comment has its own content, and you need to be able to delete one
+    particular comment -- so it needs its own name.
+
+    PLAN.md: comments are FLAT. There are no replies to replies. That keeps
+    the table simple and the screen simple.
+    """
+
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # TWO foreign keys, because a comment belongs to a post AND to a person.
+    # They point at two DIFFERENT tables, so unlike the follows table there
+    # is no ambiguity and relationships work without extra hints.
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("posts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # The comment text. Required -- an empty comment is not a comment.
+    # 2200 matches the caption limit, so the two behave the same way.
+    body: Mapped[str] = mapped_column(String(2200), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # Who wrote it. Needed so a comment can be shown with a name and avatar
+    # without a separate lookup per comment.
+    author: Mapped["User"] = relationship()
+
+    __table_args__ = (
+        # PLAN.md asks for an index on post_id together with created_at.
+        #
+        # The question this answers is "show me this post's comments, in
+        # order", which is the only way comments are ever read.
+        #
+        # Note the direction: ascending, NOT descending like posts. Comments
+        # read oldest-first, as a conversation from the top. Posts read
+        # newest-first. The index has to match the order the query asks for
+        # or it cannot be used.
+        Index("ix_comments_post_id_created_at", "post_id", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Comment id={self.id} post={self.post_id}>"

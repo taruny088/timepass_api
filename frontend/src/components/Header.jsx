@@ -24,6 +24,15 @@ export default function Header() {
         </Link>
 
         <nav className="flex items-center gap-2">
+          {/* The logo above already links home, but a logo is not an obvious
+              button to everyone. An explicit link costs nothing. */}
+          <Link
+            to="/"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+          >
+            Home
+          </Link>
+
           <Link
             to="/create"
             className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700"
