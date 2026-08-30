@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import auth
+from app import auth, posts, users
 from app.database import get_db
 
 app = FastAPI(title="Insta Clone API")
@@ -51,10 +51,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Plugs in the three endpoints defined in auth.py: /auth/signup, /auth/login
-# and /auth/me. Without this line those endpoints exist as Python code but
-# the app does not serve them.
-app.include_router(auth.router)
+# Plugs each feature's endpoints into the app. Without these lines the
+# endpoints exist as Python code but the app does not serve them.
+app.include_router(auth.router)    # /auth/signup, /auth/login, /auth/me
+app.include_router(posts.router)   # /posts
+app.include_router(users.router)   # /users/{username}
 
 
 @app.get("/health")

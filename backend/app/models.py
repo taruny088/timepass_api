@@ -6,13 +6,15 @@ database, it does not run any queries, and it holds no rules about who is
 allowed to do what. Its only job is to say what columns exist and what each
 one is allowed to hold.
 
-Phase 2 has one table: users.
+Tables so far:
+  users  (Phase 2)
+  posts  (Phase 5)
 """
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey, Index, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -117,7 +119,120 @@ class User(Base):
         nullable=False,
     )
 
+    # Every post this user has written.
+    #
+    # A RELATIONSHIP is not a column. Nothing is stored in the users table for
+    # this. It is a convenience SQLAlchemy provides: write user.posts and it
+    # runs "SELECT * FROM posts WHERE user_id = ..." for you.
+    #
+    # back_populates says this and Post.author are the same link seen from the
+    # two ends, so SQLAlchemy keeps them in step with each other.
+    #
+    # cascade="all, delete-orphan" is the Python-side twin of the ON DELETE
+    # CASCADE rule on the posts table. The database rule handles a row deleted
+    # by raw SQL; this one handles a User deleted through SQLAlchemy. Setting
+    # both means the behaviour is the same whichever route the delete takes.
+    posts: Mapped[list["Post"]] = relationship(
+        back_populates="author",
+        cascade="all, delete-orphan",
+    )
+
     def __repr__(self) -> str:
         """How one User prints when debugging. Note that it deliberately does
         not include password_hash."""
         return f"<User id={self.id} username={self.username!r}>"
+
+
+class Post(Base):
+    """One photo post.
+
+    PLAN.md feature 4: a photo is added by pasting an image link, not by
+    uploading a file. So this table stores the ADDRESS of an image, never the
+    image itself. Databases are bad at holding large files -- it bloats every
+    backup and slows every query on the table.
+    """
+
+    __tablename__ = "posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Which user wrote this post.
+    #
+    # This is a FOREIGN KEY: a column that points at a row in another table,
+    # and the first one in this project. It does two jobs.
+    #
+    # 1. It connects the tables, so we can go from a post to its author.
+    # 2. PostgreSQL ENFORCES that the target exists. Try to save a post with
+    #    user_id = 999 when there is no user 999 and the database refuses it.
+    #    Broken links are impossible, not merely unlikely.
+    #
+    # ondelete="CASCADE" answers "what happens to this post if its author is
+    # deleted?" CASCADE means the post is deleted too, automatically, by
+    # PostgreSQL. The alternative would leave posts pointing at a user who no
+    # longer exists, which is exactly the broken state the foreign key is
+    # meant to prevent.
+    #
+    # No index=True here, even though "find every post by this user" is one
+    # of the two questions this app is built around. The composite index at
+    # the bottom of this class already covers it: an index on
+    # (user_id, created_at) can answer any question about user_id on its own,
+    # because user_id is its first column. Adding index=True as well would
+    # build a second index doing the same job -- wasting disk and slowing
+    # down every insert, since each one has to update both.
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # A link to the photo. Required -- a post with no image is not a post.
+    # 500 characters because real image links carry size and token parameters
+    # and get long. Same size as users.avatar_url, for the same reason.
+    image_url: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # The text under the photo. Optional, as PLAN.md says.
+    #
+    # 2200 is Instagram's own caption limit, so it is a real number rather
+    # than one invented here. The limit is enforced by PostgreSQL, which
+    # protects the page layout from someone pasting an entire book.
+    caption: Mapped[str | None] = mapped_column(String(2200), nullable=True)
+
+    # Same reasoning as users.created_at: timezone=True stores an absolute
+    # moment so "newest first" sorts correctly for users anywhere in the
+    # world, and server_default makes PostgreSQL fill it in regardless of how
+    # the row arrived.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # The other end of User.posts. Lets us write post.author.username instead
+    # of looking the user up by hand in every endpoint.
+    #
+    # A COST worth knowing about now, because it matters in Phase 7: if you
+    # loop over 20 posts and touch post.author each time, SQLAlchemy runs 20
+    # extra queries, one per post. That is called the N+1 problem. It does not
+    # matter at this size, and the fix is one line when the feed needs it.
+    author: Mapped["User"] = relationship(back_populates="posts")
+
+    # Table-level settings go here, as opposed to the per-column ones above.
+    __table_args__ = (
+        # The index PLAN.md section 6 asks for.
+        #
+        # Our two most common questions are "this user's posts, newest first"
+        # (the profile grid, this phase) and "these users' posts, newest
+        # first" (the feed, Phase 7). Both want the same ordering, so we ask
+        # PostgreSQL to keep it prepared rather than sorting from scratch
+        # every time.
+        #
+        # .desc() means newest first. The order in the index matters: it must
+        # match the order the query asks for, or the index cannot be used.
+        Index(
+            "ix_posts_user_id_created_at",
+            "user_id",
+            created_at.desc(),
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Post id={self.id} user_id={self.user_id}>"

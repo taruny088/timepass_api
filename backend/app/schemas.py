@@ -165,3 +165,135 @@ class Token(BaseModel):
     # train ticket rather than a passport. It is a naming convention the
     # frontend relies on; the value is always the same.
     token_type: str = "bearer"
+
+
+# ----------------------------------------------------------------------------
+# Phase 5 -- posts and public profiles
+# ----------------------------------------------------------------------------
+
+MAX_IMAGE_URL_LENGTH = 500
+MAX_CAPTION_LENGTH = 2200
+
+
+class UserSummary(BaseModel):
+    """A user as seen by OTHER people, in a small space.
+
+    READ THIS ONE CAREFULLY. It exists because of what it leaves out.
+
+    UserOut above contains the email address, which is correct for /auth/me:
+    you are allowed to see your own email. But this schema is attached to
+    every post, so it is shown to everybody. Reusing UserOut here would
+    publish every user's email address to every other user of the site.
+
+    Same principle as password_hash in Phase 3: decide once, in the schema,
+    what is allowed to leave the building. Then it cannot leak by accident.
+
+    Do not add email to this class.
+    """
+
+    id: int
+    username: str
+    full_name: str | None
+    avatar_url: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserProfile(BaseModel):
+    """A user's profile page, as seen by anybody.
+
+    Like UserSummary but with the things a profile page shows: the bio, when
+    they joined, and how many posts they have.
+
+    Also deliberately has no email, for exactly the same reason.
+    """
+
+    id: int
+    username: str
+    full_name: str | None
+    bio: str | None
+    avatar_url: str | None
+    created_at: datetime
+
+    # Counted with SELECT count(*) when asked, never stored on the user row.
+    #
+    # PLAN.md section 6 explains why: a stored count drifts out of step with
+    # reality. Someone deletes a post, the number does not go down, and the
+    # app shows a lie that is very hard to trace. Counting is always correct.
+    post_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PostCreate(BaseModel):
+    """What someone must send to POST /posts.
+
+    Notice what is NOT here: user_id.
+
+    The author is taken from the login token, never from the request body. If
+    the client could send user_id, anyone could post as anyone else simply by
+    typing a different number. The rule for the rest of this project:
+    identity comes from the token, never from what the browser sends.
+    """
+
+    image_url: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_IMAGE_URL_LENGTH,
+        examples=["https://picsum.photos/600"],
+    )
+
+    caption: str | None = Field(
+        default=None,
+        max_length=MAX_CAPTION_LENGTH,
+        examples=["my first post"],
+    )
+
+    @field_validator("image_url")
+    @classmethod
+    def must_be_a_web_link(cls, value: str) -> str:
+        """Require a normal http or https web address.
+
+        Two reasons. It catches typos early, with a clear message, instead of
+        saving a broken link that shows as a grey box forever. And it blocks
+        addresses beginning with javascript:, which would be dangerous if the
+        value were ever used as a clickable link rather than an image.
+        """
+        cleaned = value.strip()
+
+        if not cleaned.startswith(("http://", "https://")):
+            raise ValueError(
+                "Image link must start with http:// or https://"
+            )
+
+        return cleaned
+
+    @field_validator("caption")
+    @classmethod
+    def clean_caption(cls, value: str | None) -> str | None:
+        """Trim spaces, and treat an all-spaces caption as no caption."""
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+
+class PostOut(BaseModel):
+    """What a post looks like when we send one back.
+
+    The author is nested inside as a UserSummary rather than a plain user_id,
+    so the website can draw the name and avatar without a second request for
+    every post on the screen.
+    """
+
+    id: int
+    image_url: str
+    caption: str | None
+    created_at: datetime
+
+    # This attribute is called "author" on the Post model, which is the
+    # relationship added in Phase 5. from_attributes below is what lets
+    # Pydantic follow it.
+    author: UserSummary
+
+    model_config = ConfigDict(from_attributes=True)
