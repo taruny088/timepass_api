@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { AuthProvider } from './auth/AuthContext.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './index.css'
 
 // The entry point. This is the first of our code that runs in the browser.
@@ -13,6 +14,10 @@ import './index.css'
 // HTML page, and React swaps its contents.
 //
 // The nesting matters, outermost first:
+//
+//   ErrorBoundary catches a crash anywhere inside and shows a message
+//                 instead of a blank white page. Outermost of our own
+//                 components, so nothing escapes it.
 //
 //   StrictMode    development-only checks that warn about risky patterns.
 //                 It deliberately runs some code twice to expose bugs, so do
@@ -29,10 +34,12 @@ import './index.css'
 //   App           the route table itself.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 )

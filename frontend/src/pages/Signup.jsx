@@ -91,6 +91,13 @@ export default function Signup() {
               required
               minLength={3}
               maxLength={30}
+              // The same rule the backend enforces with Pydantic.
+              // Without it the form accepted "john smith", sent it, and the
+              // server answered 422 -- correct, but the user is told late by
+              // a machine instead of early by the form. The backend check
+              // stays: anything in a browser can be bypassed.
+              pattern="[A-Za-z0-9_]+"
+              title="Letters, numbers and underscores only"
               autoComplete="username"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
               placeholder="john_23"

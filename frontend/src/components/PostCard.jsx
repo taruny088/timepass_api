@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import LikeButton from './LikeButton'
+import PostImage from './PostImage'
 
 // One post, drawn once, used everywhere.
 //
@@ -69,10 +70,10 @@ export default function PostCard({
       </div>
 
       <Link to={`/post/${post.id}`}>
-        <img
+        <PostImage
           src={post.image_url}
           alt={post.caption || 'post'}
-          className="w-full bg-slate-100 object-cover"
+          className="min-h-48 w-full bg-slate-100 object-cover"
         />
       </Link>
 

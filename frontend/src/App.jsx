@@ -1,8 +1,9 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import CreatePost from './pages/CreatePost'
 import Home from './pages/Home'
 import Login from './pages/Login'
+import NotFound from './pages/NotFound'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
 import Search from './pages/Search'
@@ -71,10 +72,10 @@ export default function App() {
         }
       />
 
-      {/* Any address we do not recognise goes to the home page, which will
-          itself bounce to /login if nobody is logged in. Without this, a typo
-          in the address bar shows a blank white screen with no explanation. */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Any address we do not recognise.
+          This used to redirect silently to the home page, which quietly moved
+          people somewhere else with no explanation. Saying so is better. */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }

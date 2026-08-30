@@ -4,6 +4,7 @@ import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import FollowButton from '../components/FollowButton'
 import Header from '../components/Header'
+import PostImage from '../components/PostImage'
 
 export default function Profile() {
   // useParams reads the changing part of the address.
@@ -217,7 +218,7 @@ export default function Profile() {
                 {posts.map((post) => (
                   <div key={post.id} className="group relative aspect-square">
                     <Link to={`/post/${post.id}`}>
-                      <img
+                      <PostImage
                         src={post.image_url}
                         alt={post.caption || 'post'}
                         className="h-full w-full rounded object-cover"
