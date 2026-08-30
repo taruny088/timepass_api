@@ -3,12 +3,15 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import Header from '../components/Header'
+import PostCard from '../components/PostCard'
 
 // One post on its own page, at /post/12.
 //
 // This is what makes a post shareable: it has a real address that can be
-// bookmarked, sent to someone, and reopened later. PLAN.md section 4 gives
-// this as the reason for using a router at all.
+// bookmarked, sent to someone, and reopened later.
+//
+// The card itself used to be written out here. It now comes from PostCard,
+// the same component the feed draws twenty of. One design, two places.
 export default function PostDetail() {
   const { postId } = useParams()
   const { user: me } = useAuth()
@@ -41,15 +44,11 @@ export default function PostDetail() {
     }
   }, [postId])
 
-  // Whether to draw the delete button. Only affects what is drawn -- the
-  // backend checks ownership again and answers 403 to anyone else.
-  const isMine = me?.id === post?.author?.id
-
-  async function handleDelete() {
+  async function handleDelete(id) {
     if (!window.confirm('Delete this post? This cannot be undone.')) return
 
     try {
-      await api.delete(`/posts/${post.id}`)
+      await api.delete(`/posts/${id}`)
       navigate(`/profile/${me.username}`, { replace: true })
     } catch (err) {
       setError(err.userMessage || 'Could not delete that post.')
@@ -72,60 +71,11 @@ export default function PostDetail() {
           </div>
         )}
 
+        {/* Passing onDelete is what makes the Delete button appear -- and it
+            still only shows on your own posts, which PostCard decides. The
+            feed does not pass it, so no delete buttons appear there. */}
         {!loading && !error && post && (
-          <article className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            {/* Who wrote it. The author travels inside the post itself, so
-                no second request is needed to draw this. */}
-            <div className="flex items-center justify-between px-4 py-3">
-              <Link
-                to={`/profile/${post.author.username}`}
-                className="flex items-center gap-3"
-              >
-                {post.author.avatar_url ? (
-                  <img
-                    src={post.author.avatar_url}
-                    alt={post.author.username}
-                    className="h-9 w-9 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-300 text-sm font-bold text-white">
-                    {post.author.username[0].toUpperCase()}
-                  </div>
-                )}
-                <span className="font-medium text-slate-900">
-                  {post.author.username}
-                </span>
-              </Link>
-
-              {isMine && (
-                <button
-                  onClick={handleDelete}
-                  className="text-sm font-medium text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              )}
-            </div>
-
-            <img
-              src={post.image_url}
-              alt={post.caption || 'post'}
-              className="w-full object-cover"
-            />
-
-            <div className="px-4 py-3">
-              {post.caption && (
-                <p className="whitespace-pre-wrap text-slate-800">
-                  {post.caption}
-                </p>
-              )}
-              {/* Stored as UTC, shown in the reader's own local time --
-                  the rule set in Phase 2. */}
-              <p className="mt-2 text-xs text-slate-400">
-                {new Date(post.created_at).toLocaleString()}
-              </p>
-            </div>
-          </article>
+          <PostCard post={post} onDelete={handleDelete} />
         )}
       </main>
     </div>
