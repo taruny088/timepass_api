@@ -277,6 +277,159 @@ frontend/src/
 
 ---
 
+## Deploying to Render
+
+Three pieces are deployed separately: a managed PostgreSQL database, the
+backend as a Web Service, and the frontend as a Static Site.
+
+**No application code changes are needed.** Every address is an environment
+variable with a local default.
+
+### 1. PostgreSQL
+
+Create a Render PostgreSQL instance. Note the region and use the **same one**
+for the backend — a database in one region and a backend in another means
+every query crosses the network for no reason.
+
+Render gives an **Internal** URL (usable only from inside Render, and what the
+backend should use) and an **External** URL (usable from anywhere, needed in
+step 2).
+
+**You must change the prefix.** Render hands you `postgresql://...`; this
+project needs the driver named explicitly:
+
+```
+postgresql+psycopg://user:password@host/dbname
+```
+
+Without `+psycopg`, SQLAlchemy looks for `psycopg2`, which is not in
+`requirements.txt`, and the app will not start.
+
+### 2. Create the tables
+
+The new database is completely empty. Run the existing script once, pointed at
+the remote database. There is no need to edit `backend/.env` — set the value
+for a single command:
+
+```powershell
+# Windows PowerShell, from the backend folder, venv active
+$env:DATABASE_URL="postgresql+psycopg://user:pass@host/dbname"; python create_tables.py; Remove-Item Env:DATABASE_URL
+```
+```bash
+# macOS / Linux
+DATABASE_URL="postgresql+psycopg://user:pass@host/dbname" python create_tables.py
+```
+
+Use the **External** URL here, since this runs from your own machine. An
+environment variable set this way takes precedence over `.env`, because
+`load_dotenv` does not overwrite variables that are already set.
+
+Skip this step and the backend starts fine but every request fails with
+`relation "users" does not exist`.
+
+### 3. Backend — Web Service
+
+| Setting | Value |
+|---|---|
+| Root Directory | `backend` |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+
+- `--host 0.0.0.0` accepts connections from outside the machine. The default
+  accepts only local ones, which on a server means nobody can reach it.
+- `$PORT` is chosen by Render, not by you.
+- No `--reload`. That watches files for changes; it is a development feature.
+
+Environment variables:
+
+| Key | Value |
+|---|---|
+| `DATABASE_URL` | the **Internal** URL, prefix corrected |
+| `JWT_SECRET_KEY` | **a newly generated one**, not the development key |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` |
+| `FRONTEND_ORIGIN` | set in step 5 |
+| `PYTHON_VERSION` | `3.12` |
+
+Check it with `https://<your-api>.onrender.com/health`, which should report
+`{"status": "ok", "database": "connected"}` — proving the server is up *and*
+can reach PostgreSQL.
+
+### 4. Frontend — Static Site
+
+| Setting | Value |
+|---|---|
+| Root Directory | `frontend` |
+| Build Command | `npm install && npm run build` |
+| Publish Directory | `dist` |
+
+Environment variables:
+
+| Key | Value |
+|---|---|
+| `VITE_API_URL` | `https://<your-api>.onrender.com` (no trailing slash) |
+| `NODE_VERSION` | `20` |
+
+`VITE_API_URL` is required for a production build. Without it the build still
+succeeds, but the deployed page stops immediately with a named error in the
+browser console:
+
+```
+VITE_API_URL is not set. A production build needs it to know where the
+backend is. Set it before running "npm run build".
+```
+
+That is deliberate. The alternative — falling back to `localhost` — produces a
+site that loads perfectly and where nothing works, because `localhost` in a
+deployed site means the *visitor's* own computer. A blank page naming its own
+cause is far easier to diagnose than a working page whose every request fails.
+
+**Add a rewrite rule**, or every page except the home page will 404 on
+refresh:
+
+| Source | Destination | Action |
+|---|---|---|
+| `/*` | `/index.html` | **Rewrite** |
+
+The whole app is one HTML file and React Router does the routing in the
+browser. Without this rule, a request for `/profile/john_23` makes the server
+look for a file of that name and return 404. It must be Rewrite, not Redirect.
+
+### 5. Point CORS at the deployed site
+
+Back on the backend service, set:
+
+```
+FRONTEND_ORIGIN=https://<your-site>.onrender.com
+```
+
+Several addresses may be listed, separated by commas, to allow local
+development at the same time:
+
+```
+FRONTEND_ORIGIN=http://localhost:5173,https://<your-site>.onrender.com
+```
+
+This step is last because the frontend's address is not known until step 4.
+
+### Deployment troubleshooting
+
+| Symptom | Cause |
+|---|---|
+| `ModuleNotFoundError: psycopg2` | `DATABASE_URL` prefix is not `postgresql+psycopg://` |
+| `relation "users" does not exist` | Step 2 was skipped |
+| Blocked by CORS policy | `FRONTEND_ORIGIN` does not match exactly — check `https` |
+| 404 on refresh, home page fine | The rewrite rule is missing |
+| Requests still go to localhost | `VITE_API_URL` was not set before the build; rebuild |
+| Service deploys but will not start | `--host 0.0.0.0` missing from the start command |
+| First request takes ~40 seconds | Free instances sleep when idle |
+
+### After the first deploy
+
+`create_tables.py` only ever creates **missing** tables. It never alters an
+existing one, so once there is real data a schema change needs a migration
+tool such as Alembic. Adding a column and re-running the script does nothing,
+silently.
+
 ## Troubleshooting
 
 **`[WinError 10013] An attempt was made to access a socket in a way forbidden

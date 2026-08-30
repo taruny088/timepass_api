@@ -11,7 +11,32 @@ import axios from 'axios'
 // IMPORTANT: anything in a VITE_ variable is baked into the JavaScript that
 // gets sent to the browser, so it is PUBLIC. Never put a password or secret
 // key in one. An address like this is fine because it is public anyway.
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+//
+// Note "baked in" literally: Vite substitutes the value when you BUILD, not
+// when the page runs. Changing it later means rebuilding, not restarting.
+const API_URL = import.meta.env.VITE_API_URL
+
+// import.meta.env.DEV is true only while `npm run dev` is running. In a
+// production build it is false.
+//
+// So during development a missing setting quietly falls back to localhost,
+// which is convenient and correct. In a production build it is an error
+// instead.
+//
+// Why refuse rather than fall back: without this, forgetting VITE_API_URL on
+// the hosting platform produces a site that loads perfectly and where nothing
+// works, because every request goes to "localhost" -- meaning the VISITOR'S
+// own computer, which is not running your backend. That is the worst kind of
+// bug, because it looks like the application code is broken. Failing at
+// startup with a named cause is far kinder.
+if (!API_URL && !import.meta.env.DEV) {
+  throw new Error(
+    'VITE_API_URL is not set. A production build needs it to know where the ' +
+      'backend is. Set it before running "npm run build".',
+  )
+}
+
+const BASE_URL = API_URL || 'http://localhost:8000'
 
 // The one place the token is stored. Everything else goes through these three
 // functions, so if we ever change where it lives, we change it here only.
