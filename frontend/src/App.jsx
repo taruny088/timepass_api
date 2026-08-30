@@ -5,6 +5,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
+import Search from './pages/Search'
 import Signup from './pages/Signup'
 
 // The route table: which address shows which page.
@@ -50,6 +51,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/search"
+        element={
+          <ProtectedRoute>
+            <Search />
           </ProtectedRoute>
         }
       />
