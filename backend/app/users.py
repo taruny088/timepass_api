@@ -9,11 +9,12 @@ two are allowed to show different things.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Post, User
+from app.models import Follow, Post, User
 from app.schemas import PostOut, UserProfile
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -68,8 +69,42 @@ def read_profile(
         select(func.count()).select_from(Post).where(Post.user_id == user.id)
     )
 
-    # Built by hand rather than straight from the User object, because
-    # post_count is not a column on it.
+    # THE TWO LINES MOST LIKELY TO BE WRITTEN THE WRONG WAY ROUND.
+    #
+    # Both read the same table. Which column you filter on decides the
+    # meaning, and the two look almost identical:
+    #
+    #   followers  = people who follow THIS user
+    #                so this user is the one BEING followed
+    #                -> Follow.following_id == user.id
+    #
+    #   following  = people THIS user follows
+    #                so this user is the one DOING the following
+    #                -> Follow.follower_id == user.id
+    #
+    # Read the comparison as "where is this user sitting in the row?"
+    follower_count = db.scalar(
+        select(func.count())
+        .select_from(Follow)
+        .where(Follow.following_id == user.id)
+    )
+
+    following_count = db.scalar(
+        select(func.count())
+        .select_from(Follow)
+        .where(Follow.follower_id == user.id)
+    )
+
+    # Am I following them? The viewer is the follower, they are the followed.
+    #
+    # db.get on a composite primary key takes the two values as a tuple, in
+    # the order the columns are declared on the model.
+    is_following = (
+        db.get(Follow, (current_user.id, user.id)) is not None
+    )
+
+    # Built by hand rather than straight from the User object, because none of
+    # the counts are columns on it.
     return UserProfile(
         id=user.id,
         username=user.username,
@@ -78,6 +113,9 @@ def read_profile(
         avatar_url=user.avatar_url,
         created_at=user.created_at,
         post_count=post_count,
+        follower_count=follower_count,
+        following_count=following_count,
+        is_following=is_following,
     )
 
 
@@ -109,3 +147,76 @@ def read_user_posts(
     ).all()
 
     return list(posts)
+
+
+@router.post(
+    "/{username}/follow",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Follow a user",
+)
+def follow_user(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """Start following someone.
+
+    There is no request body. Who is doing the following comes from the
+    token, exactly like the author of a post in Phase 5. If the browser could
+    send follower_id, anyone could make anybody follow anybody.
+    """
+    target = get_user_by_username(db, username)
+
+    # Checked here only so the user gets a clear message. The database
+    # refuses this anyway, through the ck_follows_no_self_follow constraint.
+    # The friendly message is ours; the guarantee is PostgreSQL's.
+    if target.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot follow yourself.",
+        )
+
+    follow = Follow(follower_id=current_user.id, following_id=target.id)
+    db.add(follow)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        # Already following. The composite primary key blocked the duplicate
+        # row, which is the database doing its job.
+        #
+        # We treat this as success rather than an error, because the caller
+        # asked for "I follow this person" and that is now true. Doing it
+        # twice leaves the same result as doing it once, which is called
+        # being IDEMPOTENT. It means a double click or a retry on a flaky
+        # connection cannot show an error for something that actually worked.
+        db.rollback()
+
+    return None
+
+
+@router.delete(
+    "/{username}/follow",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Unfollow a user",
+)
+def unfollow_user(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """Stop following someone.
+
+    Idempotent for the same reason as following: unfollowing someone you do
+    not follow leaves you not following them, which is what was asked for.
+    So a missing row is success, not a 404.
+    """
+    target = get_user_by_username(db, username)
+
+    follow = db.get(Follow, (current_user.id, target.id))
+
+    if follow is not None:
+        db.delete(follow)
+        db.commit()
+
+    return None

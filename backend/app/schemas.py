@@ -215,12 +215,35 @@ class UserProfile(BaseModel):
     avatar_url: str | None
     created_at: datetime
 
-    # Counted with SELECT count(*) when asked, never stored on the user row.
+    # All three counts are done with SELECT count(*) when asked, never stored
+    # on the user row.
     #
     # PLAN.md section 6 explains why: a stored count drifts out of step with
     # reality. Someone deletes a post, the number does not go down, and the
     # app shows a lie that is very hard to trace. Counting is always correct.
     post_count: int
+
+    # How many people follow THIS user.
+    follower_count: int
+
+    # How many people THIS user follows.
+    #
+    # Keeping these two straight is the whole difficulty of Phase 6. They come
+    # from the same table read from opposite directions, and mixing them up is
+    # the most likely bug in the phase.
+    following_count: int
+
+    # Am I -- the person asking -- following this user?
+    #
+    # This field is different in kind from the others. The counts are facts
+    # about this user. This one is a fact about the VIEWER AND this user
+    # together, so the same profile gives a different answer depending on who
+    # asks for it.
+    #
+    # It exists so the Follow button knows whether to say "Follow" or
+    # "Following" without needing a second request. Always false when you are
+    # looking at your own profile.
+    is_following: bool
 
     model_config = ConfigDict(from_attributes=True)
 

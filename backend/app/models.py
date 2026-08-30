@@ -7,13 +7,14 @@ allowed to do what. Its only job is to say what columns exist and what each
 one is allowed to hold.
 
 Tables so far:
-  users  (Phase 2)
-  posts  (Phase 5)
+  users    (Phase 2)
+  posts    (Phase 5)
+  follows  (Phase 6)
 """
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -236,3 +237,97 @@ class Post(Base):
 
     def __repr__(self) -> str:
         return f"<Post id={self.id} user_id={self.user_id}>"
+
+
+class Follow(Base):
+    """One person following another person.
+
+    THIS IS THE TRICKIEST TABLE IN THE PROJECT, and it is worth slowing down.
+
+    Every foreign key so far pointed at a DIFFERENT table: posts.user_id
+    points at users. This table has TWO foreign keys and BOTH point back at
+    users. The table connects a table to itself.
+
+    One row means "person A follows person B":
+
+        follower_id   the person DOING the following
+        following_id  the person BEING followed
+
+    The slippery part is that the same table answers two opposite questions,
+    and which column you filter on flips the meaning completely:
+
+        "who do I follow?"    ->  WHERE follower_id  = me, read following_id
+        "who follows me?"     ->  WHERE following_id = me, read follower_id
+
+    Those two lines look almost identical and mean opposite things. Getting
+    them the wrong way round is the single most likely bug in this phase, and
+    the symptom is that follower and following counts appear swapped.
+    """
+
+    __tablename__ = "follows"
+
+    # Note there is no id column. The primary key is the PAIR of columns
+    # below, which is called a COMPOSITE PRIMARY KEY: a key made of two
+    # columns together instead of one.
+    #
+    # Marking both as primary_key=True is how that is expressed.
+    #
+    # Why this is better than an id here: the pair being unique means the
+    # database physically cannot store "John follows Mary" twice. If a double
+    # click sends the request twice, PostgreSQL blocks the second one, and no
+    # "have they already followed?" check has to exist anywhere in our code.
+    # The rule lives in the one place that cannot be bypassed -- the same
+    # reasoning as unique=True on usernames in Phase 2.
+
+    follower_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    following_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # No relationship() attributes on this class, deliberately.
+    #
+    # With two foreign keys pointing at the same table, SQLAlchemy cannot
+    # guess which one a relationship should follow, so each would need an
+    # explicit foreign_keys=... argument. Nothing in this phase needs them:
+    # the counts are done with SELECT count(*), which is simpler and clearer.
+    # They can be added later if a screen ever needs to list actual people.
+
+    __table_args__ = (
+        # Nobody can follow themselves.
+        #
+        # PLAN.md asks for this rule. Putting it in the database rather than
+        # only in the endpoint means it holds however the row arrives --
+        # including a row typed by hand in psql, or a future bug in our code.
+        # The endpoint will ALSO check, but only so the user gets a friendly
+        # message instead of a raw database error.
+        CheckConstraint(
+            "follower_id <> following_id",
+            name="ck_follows_no_self_follow",
+        ),
+
+        # An index for "who follows this user?", used for the follower count.
+        #
+        # The composite primary key already indexes follower_id, because it is
+        # that key's FIRST column -- so "who do I follow?" is fast for free.
+        # But "who follows this user?" filters on following_id, which is NOT
+        # the leading column, so it needs an index of its own.
+        #
+        # Compare with Phase 5, where I removed an index because the composite
+        # one already covered it. This one is genuinely needed. The difference
+        # is entirely about which column comes first.
+        Index("ix_follows_following_id", "following_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Follow follower={self.follower_id} following={self.following_id}>"

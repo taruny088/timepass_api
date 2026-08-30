@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import FollowButton from '../components/FollowButton'
 import Header from '../components/Header'
 
 export default function Profile() {
@@ -74,6 +75,20 @@ export default function Profile() {
   // anyone can send one without ever using a button.
   const isMe = me?.username === profile?.username
 
+  // Called by FollowButton once the server has confirmed the change.
+  //
+  // Two things must move together: whether the button says "Following", and
+  // the follower count beside it. Updating both here, in one place, means
+  // they cannot disagree.
+  function handleFollowChange(nowFollowing) {
+    setProfile((current) => ({
+      ...current,
+      is_following: nowFollowing,
+      // + 1 when we just followed, - 1 when we just unfollowed.
+      follower_count: current.follower_count + (nowFollowing ? 1 : -1),
+    }))
+  }
+
   async function handleDelete(postId) {
     if (!window.confirm('Delete this post? This cannot be undone.')) return
 
@@ -140,10 +155,48 @@ export default function Profile() {
                 {profile.bio && (
                   <p className="mt-1 text-sm text-slate-500">{profile.bio}</p>
                 )}
-                <p className="mt-2 text-sm font-medium text-slate-700">
-                  {profile.post_count}{' '}
-                  {profile.post_count === 1 ? 'post' : 'posts'}
-                </p>
+                {/* The three counts. All computed by the backend when
+                    asked, never stored, so they cannot drift out of step
+                    with reality.
+
+                    follower_count = people who follow THIS user
+                    following_count = people THIS user follows
+
+                    Those two come from the same table read from opposite
+                    directions, and mixing them up is the classic bug in
+                    this part of the app. */}
+                <div className="mt-2 flex gap-4 text-sm text-slate-700">
+                  <span>
+                    <span className="font-semibold">{profile.post_count}</span>{' '}
+                    {profile.post_count === 1 ? 'post' : 'posts'}
+                  </span>
+                  <span>
+                    <span className="font-semibold">
+                      {profile.follower_count}
+                    </span>{' '}
+                    {profile.follower_count === 1 ? 'follower' : 'followers'}
+                  </span>
+                  <span>
+                    <span className="font-semibold">
+                      {profile.following_count}
+                    </span>{' '}
+                    following
+                  </span>
+                </div>
+
+                {/* No follow button on your own profile. The backend also
+                    refuses a self-follow with a 400, and the database
+                    refuses it underneath that -- three layers, because
+                    hiding a button stops nobody. */}
+                {!isMe && (
+                  <div className="mt-3">
+                    <FollowButton
+                      username={profile.username}
+                      isFollowing={profile.is_following}
+                      onChange={handleFollowChange}
+                    />
+                  </div>
+                )}
               </div>
             </section>
 
