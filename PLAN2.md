@@ -12,7 +12,31 @@ The app is built and live on the internet. This round makes it look and behave l
 
 ---
 
-## 2. Two rules that apply to every phase
+## 2. Everything asked for, and where it happens
+
+| What I asked for | Where |
+|---|---|
+| Same theme as Instagram, different name and symbol | Phase 11a |
+| Symbol in the header, no name | Phase 11a |
+| Clear interface like Instagram | Phase 11a and 11b |
+| Good, engaging interface | All of Phase 11 |
+| Mobile view | Phase 11b |
+| Upload photos directly, not links | Phase 12 |
+| Several photos per post | Phase 12 |
+| Profile photo | Phase 12 and 13 |
+| Edit profile | Phase 13 |
+| Email verification when signing up | Phase 13 |
+| Forgot password and reset by email | Phase 13 |
+| Explore, suggestions, hashtags, saved posts | Phase 14 |
+| Notifications, private accounts | Phase 15 |
+| Real-time messaging, no refreshing | Phase 16 |
+| Side-by-side match with the real app | Checked at the end of Phase 11 |
+
+**Not being built:** Reels, video of any kind, audio, live streaming, filters, shopping, ads. Every photo in this app is a still image. Anything on this list would need a different kind of storage, a different kind of player, and a different set of skills — and none of it was asked for.
+
+---
+
+## 3. Two rules that apply to every phase
 
 ### Everything is dynamic
 
@@ -186,6 +210,20 @@ Corner rounding: 8px on buttons and inputs, 12px on cards, fully round on profil
 
 ---
 
+### The check that ends Phase 11
+
+Open the real Instagram on a phone. Open Timepass on another phone, or in the browser's device view, beside it. Compare screen by screen: feed, profile, single post, comments.
+
+For each one, note every difference — spacing that is too loose, text that is too large, a button in the wrong corner, a photo that is not square. Fix the list.
+
+**What should look the same:** layout, spacing, text sizes, where things sit, how they behave when tapped.
+
+**What should look different:** the name, the symbol, and the gradient. Nothing else.
+
+This comparison is the point of the whole phase. Without it, the app ends up "roughly like Instagram", which is what almost every clone ends up as. With it, someone glancing at the screen sees a real app.
+
+---
+
 ## PHASE 12 — Photos and uploads
 
 **Everything to do with images, in one phase.** Uploading, storing, several photos per post, and profile pictures.
@@ -220,8 +258,13 @@ Alembic records each change as a numbered file that can be applied forward or ro
 **What I am building:**
 
 - An edit page reached from the profile: display name, bio, profile picture.
+- Email verification when signing up: a new account gets a confirmation link and stays unverified until it is clicked.
 - Change password, for someone already logged in.
 - Forgot password: an emailed reset link and a page to set a new one.
+
+**Why verification and reset belong together:** both send a one-time code by email and check it when the link is clicked. The same table, the same email setup and the same rules cover both. Building them apart would mean building the same machinery twice.
+
+**What "unverified" should mean:** an unverified account can log in and look around, but cannot post, comment or follow. Blocking login entirely is harsher than Instagram and makes the app annoying to demonstrate. A banner at the top with a "resend email" button is the usual approach.
 
 **What I am using:** Resend for sending email, and one new table holding reset codes.
 
@@ -297,19 +340,23 @@ Alembic records each change as a numbered file that can be applied forward or ro
 
 **What I am building:** private conversations between two people who follow each other.
 
-**What I am using:** two new tables, `conversations` and `messages`, plus polling on the frontend.
+**What I am using:** two new tables, `conversations` and `messages`, plus a WebSocket for live delivery.
 
-**Why polling and not a permanently open connection:** an always-open connection is technically better, but it means learning a second and quite different way of communicating over the internet, and it does not survive a server that sleeps after fifteen minutes of no visitors. Asking every few seconds uses only what has already been learnt. This is a deliberate trade-off with a real cost, not the only option.
+**What a WebSocket is:** every request so far has worked the same way — the browser asks, the server answers, the connection closes. That means the server can never tell the browser anything on its own. A WebSocket is a connection that stays open in both directions, so the moment a message is saved the server can push it straight to the other person's screen. No refreshing, no waiting.
+
+**The simpler alternative, and what it costs:** the browser could instead ask "anything new?" every three seconds. That also delivers messages with no refreshing, and it uses only what has already been learnt. The difference is a delay of up to three seconds, and a lot of pointless requests when nothing is happening. If the WebSocket work stalls, this is the fallback that still meets the requirement.
+
+**The complication to plan for:** the free Render service sleeps after fifteen minutes with no visitors, and a sleeping server drops every open connection. So the frontend must notice a dropped connection and reconnect by itself, and must fetch any messages missed while it was disconnected. Reconnection is not an optional extra here — without it the chat silently stops working and looks broken.
 
 | Sitting | Content |
 |---|---|
 | 16a | The two tables, plus endpoints to start a conversation, send a message and list messages |
 | 16b | The conversation list screen and the single conversation screen |
-| 16c | Polling for new messages, and unread indicators |
+| 16c | The WebSocket: live delivery, reconnecting after a drop, unread indicators |
 
 **The rule that must not be broken:** a person may only read a conversation they are part of, checked in the backend on every request — not merely by hiding links in the interface. A post deleted by the wrong person is a bug. A private message shown to a stranger is a serious failure.
 
-**New things to learn:** how to store a conversation so the same pair never ends up with two separate threads; why a message list is ordered and loaded differently from a feed; what polling costs and where it stops working; how to check permission on something owned by two people rather than one.
+**New things to learn:** how to store a conversation so the same pair never ends up with two separate threads; why a message list is ordered and loaded differently from a feed; how a WebSocket differs from an ordinary request and why a normal request cannot be pushed from the server; why a dropped connection must be detected and rebuilt; how to check permission on something owned by two people rather than one.
 
 **Finished when:** two accounts hold a conversation, each sees the other's messages within seconds, and a third account is refused access even when asking directly.
 
