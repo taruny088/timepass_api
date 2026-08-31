@@ -119,7 +119,10 @@ export default function PostCard({
        * The ways to reach the post page are still there -- the comment icon,
        * the "View all comments" line, and the timestamp. */}
       <div className="relative" onClick={handlePhotoTap}>
-        <PostImage src={post.image_url} alt={post.caption || 'post'} />
+        {/* media[0] is the first photo. A post always has at least one, and
+            the list is always a list -- even for a single photo -- so nothing
+            here has to check which shape it received. 12b draws the rest. */}
+        <PostImage src={post.media[0].url} alt={post.caption || 'post'} />
 
         {/* The burst. pointer-events-none is essential: without it this heart
             sits over the photo and swallows the next tap, so double-tapping

@@ -16,7 +16,15 @@ Tables so far:
 
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -187,10 +195,19 @@ class Post(Base):
         nullable=False,
     )
 
-    # A link to the photo. Required -- a post with no image is not a post.
-    # 500 characters because real image links carry size and token parameters
-    # and get long. Same size as users.avatar_url, for the same reason.
-    image_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    # image_url USED TO BE HERE, and Phase 12 moved it out.
+    #
+    # A post now holds SEVERAL photos, which one column cannot express -- you
+    # would end up with image_url_2, image_url_3 and a fixed ceiling, or a list
+    # crammed into one string that the database cannot search or count. The
+    # right shape is a second table with one row per photo: see PostMedia at
+    # the bottom of this file.
+    #
+    # The column was not simply deleted. There were real photos in it, so the
+    # migration copies every value into post_media before dropping it. That is
+    # exactly why Alembic starts in this phase: create_tables.py would have
+    # created post_media and then silently left posts alone, and the code and
+    # the database would have quietly disagreed.
 
     # The text under the photo. Optional, as PLAN.md says.
     #
@@ -217,6 +234,23 @@ class Post(Base):
     # extra queries, one per post. That is called the N+1 problem. It does not
     # matter at this size, and the fix is one line when the feed needs it.
     author: Mapped["User"] = relationship(back_populates="posts")
+
+    # The photos, always in the order they were chosen.
+    #
+    # order_by is doing real work here. SQL has NO inherent row order: without
+    # it PostgreSQL may hand these back in any order it likes, and it usually
+    # looks correct in testing and then shuffles once the table grows. That is
+    # the worst kind of bug -- one that only appears in production.
+    #
+    # cascade="all, delete-orphan" means deleting a post deletes its photo rows
+    # through SQLAlchemy. The ForeignKey below ALSO says ondelete="CASCADE", so
+    # PostgreSQL enforces the same rule underneath. Both, on purpose: the
+    # database rule is the one that holds even when a row is deleted by hand.
+    media: Mapped[list["PostMedia"]] = relationship(
+        back_populates="post",
+        cascade="all, delete-orphan",
+        order_by="PostMedia.position",
+    )
 
     # Table-level settings go here, as opposed to the per-column ones above.
     __table_args__ = (
@@ -450,3 +484,100 @@ class Comment(Base):
 
     def __repr__(self) -> str:
         return f"<Comment id={self.id} post={self.post_id}>"
+
+
+class PostMedia(Base):
+    """One photo belonging to one post.
+
+    WHY A SECOND TABLE RATHER THAN MORE COLUMNS.
+
+    A post can now hold up to ten photos. The tempting shapes are both wrong:
+
+      image_url_1 ... image_url_10   ten columns, nine of them usually empty,
+                                     a hard ceiling, and "how many photos does
+                                     this post have" becomes ten checks.
+
+      one column holding a list      the database cannot count them, cannot
+                                     index them, and cannot stop a malformed
+                                     one being stored. It becomes text that
+                                     only Python understands.
+
+    The right shape is one row per photo. Ten photos is ten rows; one photo is
+    one row; the count is COUNT(*); and the ceiling is a rule we choose rather
+    than a column layout we are stuck with.
+
+    This is the same relationship the app already has twice -- one user has
+    many posts, one post has many comments. One post has many photos.
+    """
+
+    __tablename__ = "post_media"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Which post this photo belongs to.
+    #
+    # ondelete="CASCADE" makes PostgreSQL delete these rows when the post goes.
+    # Without it, deleting a post would fail because rows here still point at
+    # it -- or worse, leave photo rows pointing at a post that no longer
+    # exists.
+    #
+    # No index=True: the unique constraint below starts with post_id, and in
+    # PostgreSQL a unique rule is stored as an index. It already answers
+    # "this post's photos" on its own. A second index would be wasted disk and
+    # extra work on every insert.
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("posts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # Where the photo actually lives -- a Cloudinary address.
+    #
+    # Only the LINK is stored. The file itself never touches this server,
+    # because Render wipes the server's own disk on every restart and every
+    # deploy. A photo saved there would disappear with no error and no
+    # explanation.
+    #
+    # 500 characters to match posts.image_url before it and users.avatar_url:
+    # real image links carry size and token parameters and get long.
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # Which photo this is: 0 first, then 1, 2 and so on.
+    #
+    # THE ORDER MUST BE STORED, NOT ASSUMED. It is tempting to rely on the
+    # order the rows were inserted, or on the id, and both are wrong: SQL has
+    # no inherent row order, so without an explicit ORDER BY the database may
+    # return rows however it finds them fastest. That usually looks correct on
+    # a small table and starts shuffling as it grows.
+    #
+    # Storing the position also means a photo can later be moved or removed
+    # without the rest becoming meaningless.
+    position: Mapped[int] = mapped_column(nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # The other end of Post.media.
+    post: Mapped["Post"] = relationship(back_populates="media")
+
+    __table_args__ = (
+        # No two photos in the same post may claim the same position.
+        #
+        # Python could check this before inserting, and that check can lose:
+        # two requests arriving at the same instant can both look, both find
+        # the position free, and both insert. Only the database can actually
+        # prevent it.
+        #
+        # It doubles as the index for "this post's photos, in order", because
+        # PostgreSQL stores a unique rule as an index and its columns are in
+        # exactly the order that query asks for.
+        UniqueConstraint("post_id", "position", name="uq_post_media_post_position"),
+        # Positions start at 0 and cannot be negative. A cheap rule that stops
+        # a whole category of nonsense reaching the table.
+        CheckConstraint("position >= 0", name="ck_post_media_position_positive"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PostMedia post={self.post_id} position={self.position}>"

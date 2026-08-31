@@ -112,7 +112,7 @@ def read_feed(
         #
         # selectinload tells SQLAlchemy to collect every author in ONE extra
         # query instead.
-        .options(selectinload(Post.author))
+        .options(selectinload(Post.author), selectinload(Post.media))
 
         # PLAN.md: "the feed loads twenty posts at a time rather than all of
         # them. If a user follows fifty people with hundreds of posts each,

@@ -249,47 +249,29 @@ class UserProfile(BaseModel):
 
 
 class PostCreate(BaseModel):
-    """What someone must send to POST /posts.
+    """The text part of POST /posts.
 
-    Notice what is NOT here: user_id.
+    THE PHOTO IS NOT IN HERE ANY MORE.
 
-    The author is taken from the login token, never from the request body. If
-    the client could send user_id, anyone could post as anyone else simply by
-    typing a different number. The rule for the rest of this project:
-    identity comes from the token, never from what the browser sends.
+    Until Phase 12 this carried an image_url that someone had pasted. A real
+    photo is not text, so it cannot travel in JSON -- it arrives as a file in a
+    multipart request instead, and FastAPI hands it over separately as an
+    UploadFile. See posts.py.
+
+    This class is kept for the caption alone, so the length limit and the
+    trimming rule still live with all the other validation rather than being
+    written out by hand in the endpoint.
+
+    Notice what is still NOT here: user_id. The author is taken from the login
+    token, never from the request body. If the client could send user_id,
+    anyone could post as anyone else simply by typing a different number.
     """
-
-    image_url: str = Field(
-        ...,
-        min_length=1,
-        max_length=MAX_IMAGE_URL_LENGTH,
-        examples=["https://picsum.photos/600"],
-    )
 
     caption: str | None = Field(
         default=None,
         max_length=MAX_CAPTION_LENGTH,
         examples=["my first post"],
     )
-
-    @field_validator("image_url")
-    @classmethod
-    def must_be_a_web_link(cls, value: str) -> str:
-        """Require a normal http or https web address.
-
-        Two reasons. It catches typos early, with a clear message, instead of
-        saving a broken link that shows as a grey box forever. And it blocks
-        addresses beginning with javascript:, which would be dangerous if the
-        value were ever used as a clickable link rather than an image.
-        """
-        cleaned = value.strip()
-
-        if not cleaned.startswith(("http://", "https://")):
-            raise ValueError(
-                "Image link must start with http:// or https://"
-            )
-
-        return cleaned
 
     @field_validator("caption")
     @classmethod
@@ -301,6 +283,21 @@ class PostCreate(BaseModel):
         return cleaned or None
 
 
+class PostMediaOut(BaseModel):
+    """One photo inside a post.
+
+    position is included rather than left implied by the order of the list.
+    The list IS already in order -- the model sorts by position -- but sending
+    the number makes that a fact the website can rely on instead of a happy
+    accident, and a carousel needs it to label "3 of 5".
+    """
+
+    url: str
+    position: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PostOut(BaseModel):
     """What a post looks like when we send one back.
 
@@ -310,7 +307,15 @@ class PostOut(BaseModel):
     """
 
     id: int
-    image_url: str
+
+    # The photos, in order, always a list even when there is only one.
+    #
+    # A LIST EVEN FOR ONE PHOTO is deliberate. The alternative -- a single url
+    # when there is one and a list when there are several -- means every screen
+    # that draws a post has to check which shape it received. One shape, always,
+    # and the website simply draws media[0] when it wants the first.
+    media: list[PostMediaOut]
+
     caption: str | None
     created_at: datetime
 

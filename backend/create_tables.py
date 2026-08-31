@@ -13,9 +13,30 @@ IMPORTANT LIMITATION: this only ever CREATES missing tables. It will never
 change a table that already exists. If you add a column to a model later and
 run this again, PostgreSQL will say "I already have that table" and do
 nothing at all, and your Python and your database will quietly disagree.
-While the tables are still empty the fix is to drop the table and run this
-again. Once there is real data worth keeping, the proper tool is a migration
-library such as Alembic.
+
+FROM PHASE 12 ONWARD, ALEMBIC OWNS CHANGES TO EXISTING TABLES.
+
+Never use this script to change a table that already exists. Phase 12 moved
+posts.image_url into a new post_media table; this script would have created
+post_media and then silently left posts alone, and the live site would have
+been running code that expected a column layout the database did not have.
+
+Setting up a BRAND NEW, EMPTY database:
+
+    python create_tables.py          # builds every table from models.py
+    alembic stamp head               # record that it is already up to date
+
+That second line matters. This script builds the tables as models.py describes
+them TODAY -- which already includes post_media and already lacks image_url.
+Running `alembic upgrade head` instead would then try to drop a column that was
+never there. `stamp` writes down "this database is current" without running
+anything.
+
+Changing a database that ALREADY EXISTS -- your laptop, or the live site:
+
+    alembic revision --autogenerate -m "what changed"
+    # then READ the generated file and fix it before running it
+    alembic upgrade head
 """
 
 from app.database import Base, engine

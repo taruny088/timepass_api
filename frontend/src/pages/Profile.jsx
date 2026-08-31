@@ -307,7 +307,7 @@ export default function Profile() {
                   <div key={post.id} className="group relative">
                     <Link to={`/post/${post.id}`} className="block">
                       <PostImage
-                        src={post.image_url}
+                        src={post.media[0].url}
                         alt={post.caption || 'post'}
                         className="rounded-control"
                       />

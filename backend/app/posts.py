@@ -12,12 +12,13 @@ The two words get muddled constantly. Knowing that a request comes from a
 genuinely logged-in user does NOT mean that user may delete post 12.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Post, User
+from app.media import upload_image
+from app.models import Post, PostMedia, User
 from app.post_view import build_post
 from app.schemas import PostCreate, PostOut
 
@@ -30,12 +31,54 @@ router = APIRouter(prefix="/posts", tags=["posts"])
     status_code=status.HTTP_201_CREATED,
     summary="Create a post",
 )
-def create_post(
-    payload: PostCreate,
+async def create_post(
+    # THE PHOTO ARRIVES AS A FILE, NOT AS TEXT.
+    #
+    # Every endpoint before this one took JSON. A file is not text, and cramming
+    # raw bytes into a JSON string would make them a third larger and would need
+    # encoding and decoding at both ends.
+    #
+    # So the browser sends multipart/form-data instead: one request body holding
+    # the file and the other fields side by side with separators between them.
+    # The browser builds it (FormData); FastAPI unpacks it. Unpacking is what
+    # the python-multipart package added in this phase actually does -- without
+    # it FastAPI raises an error telling you to install it.
+    #
+    # File(...) means required. UploadFile rather than bytes so the file is
+    # handled as a stream with a filename attached, rather than the whole thing
+    # being materialised before our code can decide anything about it.
+    image: UploadFile = File(..., description="The photo. JPEG, PNG, GIF or WebP."),
+    #
+    # Form(...) for the caption, because in a multipart request every field
+    # comes through the form, not through JSON. It cannot be a Pydantic model
+    # here for the same reason -- so the value is validated by handing it to
+    # PostCreate below rather than by being parsed as one.
+    caption: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> PostOut:
-    """Create a post owned by whoever is logged in."""
+    """Create a post owned by whoever is logged in.
+
+    async def, unlike every other endpoint in this project. Reading an uploaded
+    file is an await, so this function has to be able to wait -- see
+    media.upload_image.
+    """
+    # Run the caption through PostCreate so the length limit and the trimming
+    # rule stay in schemas.py with all the other validation, instead of being
+    # written out again here where the two copies could drift apart.
+    details = PostCreate(caption=caption)
+
+    # UPLOAD BEFORE WRITING THE ROW.
+    #
+    # If the upload fails, nothing has been saved and the user sees a clear
+    # error. The other order would leave a post in the database pointing at a
+    # photo that was never stored -- a broken post that nobody asked for and
+    # nothing cleans up.
+    #
+    # This checks the file's real type by reading its first bytes, and enforces
+    # the size limit. See media.py.
+    url = await upload_image(image, folder="timepass/posts")
+
     post = Post(
         # The author comes from the TOKEN, not from the request body.
         #
@@ -43,9 +86,13 @@ def create_post(
         # browser could choose the author, anyone could post as anyone else by
         # typing a different number. The browser cannot influence this.
         user_id=current_user.id,
-        image_url=payload.image_url,
-        caption=payload.caption,
+        caption=details.caption,
     )
+
+    # position=0 because this is the first photo. Phase 12b adds the rest, and
+    # they will be 1, 2, 3 and so on -- which is why the number is stored rather
+    # than assumed from the order the rows happen to come back in.
+    post.media.append(PostMedia(url=url, position=0))
 
     db.add(post)
     db.commit()

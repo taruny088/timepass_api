@@ -149,7 +149,7 @@ def read_user_posts(
             # Every post here has the same author, so this saves only one
             # query -- but it keeps every post-returning endpoint written the
             # same way, which matters more than the single query saved.
-            .options(selectinload(Post.author))
+            .options(selectinload(Post.author), selectinload(Post.media))
         ).all()
     )
 

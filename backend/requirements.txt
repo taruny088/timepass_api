@@ -8,3 +8,17 @@ python-dotenv==1.2.3
 bcrypt==5.0.0
 PyJWT==2.13.0
 email-validator==2.3.0
+
+# Phase 12 — photos and uploads
+#
+# alembic          records each change to an existing table as a numbered file
+#                  that can be applied forward or rolled back. From this phase
+#                  on, create_tables.py is never used to change a table.
+# cloudinary       where the photos actually live. Render wipes the server's
+#                  own disk on every restart, so only the link is stored here.
+# python-multipart lets FastAPI read an uploaded file. A file is not JSON, so
+#                  it arrives in a different kind of request body, and FastAPI
+#                  cannot unpack one without this.
+alembic==1.19.1
+cloudinary==1.46.2
+python-multipart==0.0.32

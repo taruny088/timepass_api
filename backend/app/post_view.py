@@ -31,7 +31,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Comment, Like, Post, User
-from app.schemas import PostOut, UserSummary
+from app.schemas import PostMediaOut, PostOut, UserSummary
 
 
 def build_post_list(
@@ -91,7 +91,13 @@ def build_post_list(
     return [
         PostOut(
             id=post.id,
-            image_url=post.image_url,
+            # post.media is already sorted, because the relationship in
+            # models.py carries order_by="PostMedia.position". Relying on that
+            # rather than sorting again here keeps the ordering rule in ONE
+            # place -- if it were repeated, the two could drift apart and the
+            # carousel would show photos in a different order on different
+            # screens.
+            media=[PostMediaOut.model_validate(m) for m in post.media],
             caption=post.caption,
             created_at=post.created_at,
             author=UserSummary.model_validate(post.author),

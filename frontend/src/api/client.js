@@ -67,6 +67,30 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
+  // PHASE 12: A FILE UPLOAD MUST NOT BE SENT AS JSON.
+  //
+  // The default Content-Type above is right for every request that sends an
+  // object, and wrong for the one that sends a file.
+  //
+  // A multipart body is split into parts by a randomly generated separator
+  // called a BOUNDARY, and the header has to name the exact boundary used in
+  // the body:
+  //
+  //     Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryAbC123
+  //
+  // Only the browser knows that string, because it invents it while packing the
+  // body. Leaving 'application/json' here would send a file with the wrong
+  // header and no boundary at all, and the server would fail to unpack it --
+  // with an error that reads like the file is corrupt rather than like a header
+  // is wrong.
+  //
+  // Deleting the header is what tells axios to stand back and let the browser
+  // fill it in. Do not try to set it by hand: you cannot know the boundary.
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
+
   return config
 })
 
