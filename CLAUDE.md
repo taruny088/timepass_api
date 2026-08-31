@@ -1,7 +1,9 @@
 # How to work with me
 
-**Current work: Phase 11b — Icons, components and mobile layout. Not started.**
-(11a done, tested live on a phone. The design system is `frontend/src/index.css`.)
+**Current work: Phase 11c — The details that make it feel real. Not started.**
+(11a and 11b done, tested live on a phone. Design system: `frontend/src/index.css`.
+Shared pieces: `frontend/src/components/ui/`. The modal was deferred from 11b to
+11c, where the follower list will actually need one.)
 (Keep this line up to date. It is the first thing to read at the start of a session.)
 
 ## My situation
