@@ -1,10 +1,12 @@
 # How to work with me
 
-**Current work: the side-by-side comparison against real Instagram, which ends Phase 11.**
-(11a, 11b, 11c-i and 11c-ii all done and tested live. Design system:
-`frontend/src/index.css`. Shared pieces: `frontend/src/components/ui/`. The comparison
-is user-led — he holds both phones and lists the differences. Then Phase 12, photos and
-uploads, where Alembic starts.)
+**Current work: Phase 13 — Account and profile. Not started.**
+(Phases 11 and 12 done and tested live. Design system: `frontend/src/index.css`.
+Shared pieces: `frontend/src/components/ui/`. Alembic is set up with three
+migrations applied to the live database; `create_tables.py` must never be used to
+change an existing table. Photos live on Cloudinary, `public_id` stored so they
+can be deleted. Still owed: two small changes, and the Instagram side-by-side
+comparison that formally closes Phase 11.)
 (Keep this line up to date. It is the first thing to read at the start of a session.)
 
 ## My situation
