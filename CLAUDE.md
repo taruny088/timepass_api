@@ -1,6 +1,7 @@
 # How to work with me
 
-**Current work: Phase 11a — Identity and design system. Works locally, pushed. Waiting on the live check before 11b.**
+**Current work: Phase 11b — Icons, components and mobile layout. Not started.**
+(11a done, tested live on a phone. The design system is `frontend/src/index.css`.)
 (Keep this line up to date. It is the first thing to read at the start of a session.)
 
 ## My situation
