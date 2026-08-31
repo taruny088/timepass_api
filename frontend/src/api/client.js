@@ -122,11 +122,22 @@ api.interceptors.response.use(
 
 function readableMessage(error) {
   // No response at all. The request never reached a server: the backend is not
-  // running, or the computer is offline. This is the single most common
-  // confusion when developing, because the browser console shows a CORS-ish
-  // error that has nothing to do with the real cause.
+  // running, it is asleep, or the computer is offline. This is the single most
+  // common confusion when developing, because the browser console shows a
+  // CORS-ish error that has nothing to do with the real cause.
+  //
+  // THE MESSAGE NAMES THE ADDRESS IT ACTUALLY TRIED, and that matters.
+  //
+  // It used to say "Is the backend running on port 8000?" as a fixed sentence.
+  // On a laptop that is right. On the live site it is actively misleading --
+  // the request went to Render, port 8000 has nothing to do with it, and the
+  // message sends you to check a server on your own machine that was never
+  // involved. That cost real time.
+  //
+  // An error message should say what actually happened. BASE_URL is the one
+  // fact that separates the two cases, so it goes in the sentence.
   if (!error.response) {
-    return 'Cannot reach the server. Is the backend running on port 8000?'
+    return `Cannot reach the server at ${BASE_URL}. It may be starting up, asleep, or not running.`
   }
 
   const { status, data } = error.response

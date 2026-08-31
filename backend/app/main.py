@@ -12,8 +12,12 @@ features. Each later phase adds one more router here.
 
 import os
 
-from fastapi import Depends, FastAPI, Response, status
+import logging
+import traceback
+
+from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -52,6 +56,58 @@ ALLOWED_ORIGINS = [
     for origin in _frontend_origins_raw.split(",")
     if origin.strip()
 ]
+
+# --- Crashes must still answer with CORS headers -----------------------------
+#
+# A BUG THAT COST REAL DEBUGGING TIME, so it is worth understanding properly.
+#
+# When an endpoint raises HTTPException -- a 401, a 404 -- FastAPI turns it into
+# a normal response, it passes back out through the CORS middleware below, and
+# the browser receives a proper error the website can display.
+#
+# When an endpoint raises something UNEXPECTED -- say a database error because a
+# table is missing -- the 500 is produced by a layer that sits OUTSIDE the CORS
+# middleware. It never passes through it, so it carries no
+# access-control-allow-origin header. The browser then blocks the response
+# before any JavaScript sees it.
+#
+# The result is the worst kind of error message: the website reports "cannot
+# reach the server" while the server is up, healthy, and answering in half a
+# second. You go and check whether the backend is running. It is. The real
+# cause -- one broken query -- is invisible.
+#
+# This middleware catches anything that escapes an endpoint and turns it into an
+# ordinary JSON response. Because it is INSIDE the CORS middleware, that
+# response gets the headers, reaches the browser, and says what happened.
+#
+# ORDER MATTERS AND IS BACK TO FRONT. In Starlette the LAST middleware added is
+# the OUTERMOST. So this one is added BEFORE the CORS middleware below, which
+# puts CORS on the outside where it can add headers to what this returns. Swap
+# the two blocks and the bug comes straight back.
+@app.middleware("http")
+async def catch_unhandled_errors(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        # Log the real traceback to the server's own output. The browser gets a
+        # short message; the details stay here.
+        #
+        # NEVER send the traceback to the browser. It names file paths, library
+        # versions and sometimes query contents -- a map of the application for
+        # anyone looking for a way in.
+        logging.error("Unhandled error on %s %s", request.method, request.url.path)
+        logging.error(traceback.format_exc())
+
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "detail": (
+                    "Something went wrong on the server. This is a fault in the "
+                    "app, not something you did."
+                )
+            },
+        )
+
 
 # MIDDLEWARE is code that runs on EVERY request, before and after the endpoint.
 # get_current_user was a gate on particular endpoints; middleware wraps all of
