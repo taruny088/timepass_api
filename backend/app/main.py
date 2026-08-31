@@ -146,7 +146,26 @@ app.include_router(search.router)  # /search/users
 
 @app.get("/health")
 def health(response: Response, db: Session = Depends(get_db)):
-    """Report whether the backend is up and can actually reach the database."""
+    """Report whether the backend is up, reaches the database, and can upload.
+
+    WHY THIS REPORTS ON SETTINGS AND NOT JUST ON BEING ALIVE.
+
+    A setting that is present on a laptop and missing in production is invisible
+    until somebody uses the feature and gets an error. Phase 12 cost an evening
+    to exactly that: the Cloudinary keys were in backend/.env and were never
+    added to Render, so uploads failed in production only, and the way to find
+    out was to try to post a photo.
+
+    Now one address answers it:
+
+        https://<the-api>/health
+
+    NOTHING SECRET IS SENT. Each entry is true or false -- whether a setting has
+    a value, never what the value is. That distinction is the whole design of
+    this endpoint: it is public, unauthenticated, and readable by anyone who
+    guesses the address, so it may report the SHAPE of the configuration and
+    never its contents.
+    """
     try:
         # The simplest question PostgreSQL can be asked: reply with the
         # number 1. We do not care about the answer, only that one came back.
@@ -155,4 +174,22 @@ def health(response: Response, db: Session = Depends(get_db)):
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {"status": "error", "database": "not connected"}
 
-    return {"status": "ok", "database": "connected"}
+    # Imported here rather than at the top of the file on purpose.
+    #
+    # app/media.py configures the Cloudinary library when it is first imported.
+    # Doing that at module level here would mean the whole backend refuses to
+    # start if anything in that file is unhappy -- and losing the entire site
+    # over a missing upload key would be far worse than losing uploads.
+    from app.media import API_KEY, API_SECRET, CLOUD_NAME
+
+    uploads_configured = bool(CLOUD_NAME and API_KEY and API_SECRET)
+
+    return {
+        "status": "ok",
+        "database": "connected",
+        # "configured" rather than "working". This says the three settings have
+        # values; it does not say they are the RIGHT values, or that Cloudinary
+        # is reachable. Claiming more than we have checked would make this
+        # endpoint a liar in exactly the situation it exists to diagnose.
+        "uploads": "configured" if uploads_configured else "not configured",
+    }
