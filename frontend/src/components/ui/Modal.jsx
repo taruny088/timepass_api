@@ -118,7 +118,7 @@ export default function Modal({ open, onClose, title, children }) {
     // The backdrop. Clicking it closes.
     <div
       onClick={onClose}
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-30 flex items-end justify-center bg-scrim p-0 sm:items-center sm:p-4"
     >
       <div
         ref={panelRef}

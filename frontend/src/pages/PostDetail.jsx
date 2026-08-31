@@ -9,6 +9,7 @@ import PostActions from '../components/PostActions'
 import PostHeader from '../components/PostHeader'
 import PostImage from '../components/PostImage'
 import Card from '../components/ui/Card'
+import Carousel from '../components/ui/Carousel'
 import Spinner from '../components/ui/Spinner'
 import timeAgo from '../lib/timeAgo'
 import useLike from '../lib/useLike'
@@ -131,7 +132,22 @@ function PostBody({ post, onDelete, onCommentCountChange }) {
         {/* Double-tap to like works here too. onClick on the wrapper rather
             than the image, so the tap area is the whole square. */}
         <div className="relative" onDoubleClick={like}>
-          <PostImage src={post.media[0].url} alt={post.caption || 'post'} />
+          {post.media.length > 1 ? (
+            <Carousel media={post.media} alt={post.caption || 'post'}>
+              {(item, position) => (
+                <PostImage
+                  src={item.url}
+                  alt={
+                    post.caption
+                      ? `${post.caption} (photo ${position + 1})`
+                      : `Photo ${position + 1}`
+                  }
+                />
+              )}
+            </Carousel>
+          ) : (
+            <PostImage src={post.media[0].url} alt={post.caption || 'post'} />
+          )}
         </div>
 
         {/* md:border-l is the divider between the two columns, and it exists

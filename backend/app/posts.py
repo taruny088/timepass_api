@@ -17,12 +17,19 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.media import upload_image
+from app.media import delete_image, upload_image
 from app.models import Post, PostMedia, User
 from app.post_view import build_post
 from app.schemas import PostCreate, PostOut
 
 router = APIRouter(prefix="/posts", tags=["posts"])
+
+# Instagram's own limit, so it is a real number rather than one invented here.
+#
+# Enforced on the server, not only in the browser. The website will stop you
+# choosing an eleventh photo, and that stops nobody who sends the request by
+# hand.
+MAX_PHOTOS_PER_POST = 10
 
 
 @router.post(
@@ -47,7 +54,9 @@ async def create_post(
     # File(...) means required. UploadFile rather than bytes so the file is
     # handled as a stream with a filename attached, rather than the whole thing
     # being materialised before our code can decide anything about it.
-    image: UploadFile = File(..., description="The photo. JPEG, PNG, GIF or WebP."),
+    images: list[UploadFile] = File(
+        ..., description="One to ten photos. JPEG, PNG, GIF or WebP."
+    ),
     #
     # Form(...) for the caption, because in a multipart request every field
     # comes through the form, not through JSON. It cannot be a Pydantic model
@@ -68,16 +77,51 @@ async def create_post(
     # written out again here where the two copies could drift apart.
     details = PostCreate(caption=caption)
 
-    # UPLOAD BEFORE WRITING THE ROW.
+    if not images:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A post needs at least one photo.",
+        )
+
+    if len(images) > MAX_PHOTOS_PER_POST:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"A post can hold at most {MAX_PHOTOS_PER_POST} photos. "
+                f"You chose {len(images)}."
+            ),
+        )
+
+    # UPLOAD EVERYTHING BEFORE WRITING ANY ROW.
     #
-    # If the upload fails, nothing has been saved and the user sees a clear
-    # error. The other order would leave a post in the database pointing at a
-    # photo that was never stored -- a broken post that nobody asked for and
+    # If any upload fails, nothing has been saved and the user sees a clear
+    # error. The other order would leave a post in the database pointing at
+    # photos that were never stored -- a broken post nobody asked for and
     # nothing cleans up.
     #
-    # This checks the file's real type by reading its first bytes, and enforces
-    # the size limit. See media.py.
-    url = await upload_image(image, folder="timepass/posts")
+    # Each file is checked by reading its first bytes and against the size
+    # limit, so photo seven being a renamed text file stops the whole post
+    # rather than being quietly skipped. See media.py.
+    #
+    # ONE AT A TIME, not all at once. Ten simultaneous uploads from a free
+    # Render instance is a good way to be rate-limited or time out, and doing
+    # them in order means the failure message can say WHICH photo was the
+    # problem.
+    uploaded = []
+    try:
+        for index, image in enumerate(images):
+            uploaded.append(await upload_image(image, folder="timepass/posts"))
+    except HTTPException as error:
+        # Tidy up anything already sent before the failure, so a half-finished
+        # post does not leave stray files on Cloudinary that nothing references.
+        for done in uploaded:
+            delete_image(done.public_id)
+
+        # Say which photo, counting from 1 as a person would. "Photo 3 is not an
+        # image" is actionable; "that file is not an image" is not, when ten were
+        # chosen.
+        error.detail = f"Photo {len(uploaded) + 1}: {error.detail}"
+        raise
 
     post = Post(
         # The author comes from the TOKEN, not from the request body.
@@ -89,10 +133,15 @@ async def create_post(
         caption=details.caption,
     )
 
-    # position=0 because this is the first photo. Phase 12b adds the rest, and
-    # they will be 1, 2, 3 and so on -- which is why the number is stored rather
-    # than assumed from the order the rows happen to come back in.
-    post.media.append(PostMedia(url=url, position=0))
+    # enumerate gives 0, 1, 2 ... alongside each photo, which becomes its
+    # position. THE ORDER IS RECORDED HERE, ONCE, and every screen afterwards
+    # reads it back rather than guessing -- SQL has no inherent row order, so
+    # relying on the order rows come back in would work until it quietly did
+    # not.
+    for index, item in enumerate(uploaded):
+        post.media.append(
+            PostMedia(url=item.url, public_id=item.public_id, position=index)
+        )
 
     db.add(post)
     db.commit()
@@ -176,8 +225,27 @@ def delete_post(
     # photos are already visible on a profile page, so there is nothing to
     # hide and the clearer message wins.
 
+    # THE ORDER HERE IS DELIBERATE: remember the ids, delete the row, then
+    # delete the files.
+    #
+    # Read them BEFORE the delete, because once the row is gone so is its list
+    # of photos and there is nothing left to look them up by.
+    #
+    # Delete the files AFTER the database has committed, because the database is
+    # the thing that must be right. If Cloudinary fails we are left with a file
+    # nobody references -- untidy and harmless. The other order risks deleting
+    # the photos and then failing to delete the post, which leaves a post on
+    # screen whose pictures are permanently broken. That is far worse.
+    public_ids = [item.public_id for item in post.media]
+
     db.delete(post)
     db.commit()
+
+    # Empty for anything posted before Phase 12 -- pasted links that were never
+    # on Cloudinary. delete_image skips those, and never raises: the user asked
+    # for the post to go, and it has gone.
+    for public_id in public_ids:
+        delete_image(public_id)
 
     # 204 No Content means "done, and there is nothing to send back", which is
     # exactly right for a deletion. Returning None is what produces an empty

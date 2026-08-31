@@ -110,6 +110,16 @@ class User(Base):
     # table. Real image links can be long, hence 500.
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # What Cloudinary calls the avatar file, so the old one can be removed when
+    # a new one is uploaded.
+    #
+    # Same reasoning as post_media.public_id: Cloudinary identifies a file by
+    # its public_id, not its address. Without this, changing your photo ten
+    # times leaves nine files nothing points at and nothing will ever clean up.
+    #
+    # Nullable, because most users have no avatar at all yet.
+    avatar_public_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     # The exact moment the account was created.
     #
     # timezone=True stores an absolute point in time rather than a wall-clock
@@ -540,6 +550,20 @@ class PostMedia(Base):
     # 500 characters to match posts.image_url before it and users.avatar_url:
     # real image links carry size and token parameters and get long.
     url: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # What Cloudinary calls this file, e.g. "timepass/posts/c4ubc7fqf21ufp8".
+    #
+    # WHY THE URL IS NOT ENOUGH. Cloudinary identifies a file by its public_id,
+    # not by its address. Without this column, deleting a post removes the row
+    # and leaves the photo sitting on Cloudinary forever, with nothing pointing
+    # at it and nothing that will ever clean it up.
+    #
+    # NULLABLE, AND THAT IS NOT LAZINESS. The posts made before Phase 12 hold
+    # links that were pasted from other websites -- picsum.photos and the like.
+    # Those files are not on Cloudinary at all, so they have no public_id and
+    # never can. Anything deleting from Cloudinary must skip a row where this is
+    # empty, or it will ask Cloudinary to remove a file it has never heard of.
+    public_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Which photo this is: 0 first, then 1, 2 and so on.
     #

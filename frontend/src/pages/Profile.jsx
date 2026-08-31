@@ -1,4 +1,4 @@
-import { Image as ImageIcon, Trash2, Users } from 'lucide-react'
+import { Camera, Image as ImageIcon, Loader2, Trash2, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api/client'
@@ -23,7 +23,7 @@ export default function Profile() {
   // every user on the site instead of one page per person.
   const { username } = useParams()
 
-  const { user: me } = useAuth()
+  const { user: me, refreshUser } = useAuth()
 
   const [profile, setProfile] = useState(null)
   const [posts, setPosts] = useState([])
@@ -37,6 +37,8 @@ export default function Profile() {
   // closed. One piece of state rather than two booleans, because the two lists
   // can never both be open -- and two booleans would let them be.
   const [listKind, setListKind] = useState(null)
+
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   const [listPeople, setListPeople] = useState([])
   const [listLoading, setListLoading] = useState(false)
@@ -142,6 +144,41 @@ export default function Profile() {
     }))
   }
 
+  async function handleAvatarChange(event) {
+    const file = event.target.files?.[0]
+    // Clear the input immediately, so choosing the same file again still fires.
+    event.target.value = ''
+    if (!file) return
+
+    setError('')
+    setAvatarUploading(true)
+
+    try {
+      const form = new FormData()
+      form.append('image', file)
+
+      const response = await api.post('/users/me/avatar', form)
+
+      // TWO THINGS HOLD THE SAME PICTURE, AND BOTH MUST MOVE.
+      //
+      // `profile` is what this page draws. `user` in AuthContext is what the
+      // header and the bottom bar draw. They are separate copies of the same
+      // person, so updating one and not the other leaves the new photo on the
+      // profile and the old one still sitting in the header -- which looks like
+      // the upload half-worked.
+      setProfile((current) => ({
+        ...current,
+        avatar_url: response.data.avatar_url,
+      }))
+
+      await refreshUser()
+    } catch (err) {
+      setError(err.userMessage || 'Could not update your photo.')
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
+
   async function handleDelete(postId) {
     if (!window.confirm('Delete this post? This cannot be undone.')) return
 
@@ -186,11 +223,47 @@ export default function Profile() {
               {/* The picture-or-first-letter block that used to be written out
                   here by hand. Avatar already carries the shrink-0 that stops a
                   round photo squashing into an oval beside long text. */}
-              <Avatar
-                src={profile.avatar_url}
-                username={profile.username}
-                size="lg"
-              />
+              {/* Your own photo is a button; everyone else's is just a
+                  picture. isMe decides which, and the backend decides for real
+                  -- /users/me/avatar can only ever change the account the token
+                  belongs to, so there is no way to aim it at someone else. */}
+              <div className="relative shrink-0">
+                <Avatar
+                  src={profile.avatar_url}
+                  username={profile.username}
+                  size="lg"
+                />
+
+                {isMe && (
+                  <>
+                    <label htmlFor="avatar" className="sr-only">
+                      Change your profile photo
+                    </label>
+                    <input
+                      id="avatar"
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={handleAvatarChange}
+                      disabled={avatarUploading}
+                      className="sr-only"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('avatar')?.click()}
+                      disabled={avatarUploading}
+                      aria-label="Change your profile photo"
+                      title="Change your profile photo"
+                      className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-accent text-on-accent transition active:scale-90 hover:bg-accent-hover disabled:bg-accent-soft"
+                    >
+                      {avatarUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Camera className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
 
               {/* min-w-0 looks like it does nothing, and it is the whole fix.
                *

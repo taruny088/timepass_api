@@ -7,6 +7,7 @@ import PostActions from './PostActions'
 import PostHeader from './PostHeader'
 import PostImage from './PostImage'
 import Card from './ui/Card'
+import Carousel from './ui/Carousel'
 
 // How long a caption can be before it is cut off behind a "more" link.
 // 125 characters is Instagram's own threshold.
@@ -73,6 +74,32 @@ export default function PostCard({
     return () => clearTimeout(burstTimer.current)
   }, [])
 
+  // WHERE A TAP STARTED, so a swipe is not mistaken for one.
+  //
+  // On a carousel this matters. Dragging sideways to the next photo ends with a
+  // finger lifting off the picture, and treated naively that is a tap -- so
+  // swiping through five photos would like the post twice on the way.
+  //
+  // The distinction is movement: a tap lands where it started, a swipe does not.
+  // 10 pixels of slack because nobody holds a phone perfectly still.
+  const pointerStart = useRef({ x: 0, y: 0 })
+
+  function handlePointerDown(event) {
+    pointerStart.current = { x: event.clientX, y: event.clientY }
+  }
+
+  function handlePointerUp(event) {
+    const movedX = Math.abs(event.clientX - pointerStart.current.x)
+    const movedY = Math.abs(event.clientY - pointerStart.current.y)
+
+    // Moved too far to be a tap. It was a swipe or a scroll, so do nothing --
+    // and deliberately do not record it as the first half of a double tap
+    // either, or a swipe followed by a real tap would count as one.
+    if (movedX > 10 || movedY > 10) return
+
+    handlePhotoTap()
+  }
+
   function handlePhotoTap() {
     const now = Date.now()
 
@@ -109,31 +136,49 @@ export default function PostCard({
     <Card as="article" className="overflow-hidden">
       <PostHeader post={post} onDelete={onDelete} />
 
-      {/* THE PHOTO IS NO LONGER A LINK, and that is deliberate.
+      {/* THE PHOTO IS NOT A LINK, and that is deliberate.
        *
-       * It used to be wrapped in a Link to the post page. That cannot coexist
-       * with a double tap: the first tap navigates away before the second one
-       * ever happens, so the gesture could never complete.
+       * It cannot be, and coexist with a double tap: the first tap would
+       * navigate away before the second one ever happened. Instagram's feed
+       * photo is not a link either, for the same reason. The comment icon, the
+       * comments line and the timestamp all still reach the post page.
        *
-       * Instagram's feed photo is not a link either, for exactly this reason.
-       * The ways to reach the post page are still there -- the comment icon,
-       * the "View all comments" line, and the timestamp. */}
-      <div className="relative" onClick={handlePhotoTap}>
-        {/* media[0] is the first photo. A post always has at least one, and
-            the list is always a list -- even for a single photo -- so nothing
-            here has to check which shape it received. 12b draws the rest. */}
-        <PostImage src={post.media[0].url} alt={post.caption || 'post'} />
+       * onPointerDown/onPointerUp rather than onClick, so a swipe across a
+       * carousel is not read as a tap. Pointer events cover mouse, finger and
+       * stylus with one pair of handlers. */}
+      <div
+        className="relative"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+      >
+        {/* One photo draws plainly; several get the carousel. No carousel for a
+            single photo -- it would add dots and a "1/1" counter that say
+            nothing, and a scroll container with nothing to scroll. */}
+        {post.media.length > 1 ? (
+          <Carousel media={post.media} alt={post.caption || 'post'}>
+            {(item, position) => (
+              <PostImage
+                src={item.url}
+                alt={
+                  post.caption
+                    ? `${post.caption} (photo ${position + 1})`
+                    : `Photo ${position + 1}`
+                }
+              />
+            )}
+          </Carousel>
+        ) : (
+          <PostImage src={post.media[0].url} alt={post.caption || 'post'} />
+        )}
 
         {/* The burst. pointer-events-none is essential: without it this heart
             sits over the photo and swallows the next tap, so double-tapping
-            twice in a row would not work. */}
+            twice in a row would not work -- and it would block the swipe. */}
         {burst && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <Heart
               className="h-24 w-24 animate-heart-burst text-on-accent drop-shadow-lg"
               fill="currentColor"
-              // Decoration only. The like itself is announced by the heart
-              // button below, whose aria-pressed changes at the same moment.
               aria-hidden="true"
             />
           </div>

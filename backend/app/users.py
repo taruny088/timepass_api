@@ -7,16 +7,25 @@ auth.py serves you your own details, this file serves other people's, and the
 two are allowed to show different things.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.media import delete_image, upload_image
 from app.models import Follow, Post, User
 from app.post_view import build_post_list
-from app.schemas import PostOut, UserProfile, UserSummary
+from app.schemas import PostOut, UserOut, UserProfile, UserSummary
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -323,3 +332,53 @@ def read_following(
             .limit(limit)
         )
     )
+
+
+@router.post(
+    "/me/avatar",
+    response_model=UserOut,
+    summary="Upload or replace your own profile picture",
+)
+async def upload_avatar(
+    image: UploadFile = File(..., description="The photo. JPEG, PNG, GIF or WebP."),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Set the logged-in user's profile picture.
+
+    NOTE THE ADDRESS: /users/me/avatar, not /users/{username}/avatar.
+
+    "me" is not a username -- it means "whoever this token belongs to". There is
+    deliberately no way to name the user here, because if there were, the server
+    would have to check that the name matches the token on every request, and
+    forgetting that check once is how someone changes another person's photo.
+
+    An endpoint that CANNOT express the wrong user is safer than one that checks.
+
+    This is the first endpoint in the project that changes your own account, so
+    it is the first place that rule comes up. Phase 13 adds more of them --
+    display name, bio, password -- and they all follow this shape.
+
+    No migration was needed: users.avatar_url has existed since Phase 1, holding
+    nothing. This finally fills it in.
+    """
+    uploaded = await upload_image(image, folder="timepass/avatars")
+
+    # Remember the old one before overwriting, so it can be cleaned up.
+    #
+    # Without this, changing your photo ten times leaves nine files on
+    # Cloudinary that nothing points at and nothing will ever remove.
+    old_public_id = current_user.avatar_public_id
+
+    current_user.avatar_url = uploaded.url
+    current_user.avatar_public_id = uploaded.public_id
+
+    db.commit()
+    db.refresh(current_user)
+
+    # AFTER the commit, for the same reason as deleting a post: the database is
+    # the thing that must be right. A leftover file is untidy; a user row
+    # pointing at a photo that has just been deleted is a broken profile.
+    delete_image(old_public_id)
+
+    return current_user

@@ -20,8 +20,10 @@ instead because it is the only version where OUR rules are enforced by OUR code:
 the checks below run before anything leaves our control.
 """
 
+import logging
 import os
 from pathlib import Path
+from typing import NamedTuple
 
 import cloudinary
 import cloudinary.uploader
@@ -119,10 +121,30 @@ def _detect_image_type(data: bytes) -> str | None:
     return None
 
 
-async def upload_image(file: UploadFile, folder: str) -> str:
+class UploadedImage(NamedTuple):
+    """What Cloudinary gives back, and both halves matter.
+
+    url        where the browser fetches the photo from
+    public_id  the name Cloudinary knows the file by
+
+    A NamedTuple rather than a bare tuple, so the caller writes result.public_id
+    instead of result[1]. Two plain strings in a tuple are exactly the kind of
+    thing that gets swapped by accident, and swapping these two would store a
+    web address as an id and never fail loudly.
+
+    THE public_id IS WHY THIS EXISTS AT ALL. Cloudinary identifies a file by its
+    public_id, not by its address, so without keeping it a deleted post leaves
+    its photo on Cloudinary forever with nothing pointing at it.
+    """
+
+    url: str
+    public_id: str
+
+
+async def upload_image(file: UploadFile, folder: str) -> UploadedImage:
     """Check an uploaded file is really an image, send it to Cloudinary.
 
-    Returns the https link to store in the database.
+    Returns the link to store, and the id needed to delete it later.
 
     Raises HTTPException with a clear message for anything the user can fix,
     which is what lets the website show something useful rather than "error".
@@ -197,4 +219,33 @@ async def upload_image(file: UploadFile, folder: str) -> str:
             detail="Could not upload that image. Please try again.",
         ) from error
 
-    return result["secure_url"]
+    return UploadedImage(url=result["secure_url"], public_id=result["public_id"])
+
+
+def delete_image(public_id: str | None) -> None:
+    """Remove a photo from Cloudinary. Never raises.
+
+    WHY THIS REFUSES TO FAIL.
+
+    It is called while deleting a post, after the user has already confirmed.
+    If Cloudinary is unreachable at that moment, the right outcome is still that
+    the post goes -- the user asked for it and they should not be told their
+    delete failed because a storage service was slow.
+
+    The cost is one file left behind on Cloudinary, which is untidy and harmless.
+    The alternative is a post that will not delete, which is neither.
+
+    So the failure is logged and swallowed. This is a deliberate exception to the
+    usual rule that errors should be surfaced: the caller has nothing useful to
+    do with this one.
+    """
+    # Empty for every photo posted before Phase 12 -- those are links pasted
+    # from other websites and are not on Cloudinary at all. Asking Cloudinary to
+    # delete a file it has never heard of is a request that cannot succeed.
+    if not public_id:
+        return
+
+    try:
+        cloudinary.uploader.destroy(public_id)
+    except Exception:
+        logging.warning("Could not delete %s from Cloudinary", public_id)

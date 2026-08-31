@@ -117,7 +117,25 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
-  const value = { user, loading, login, signup, logout }
+  // Ask the backend who we are again, and redraw with the answer.
+  //
+  // WHY THIS IS NEEDED. `user` is a COPY, taken once when the page loaded. Every
+  // avatar in the app -- the header, the bottom bar, your own profile -- is
+  // drawn from that copy. Upload a new photo and the database changes, but this
+  // copy does not, so the old picture stays on screen until you happen to
+  // reload. Nothing looks broken; it just quietly shows the wrong thing, which
+  // is worse.
+  //
+  // It re-fetches rather than being handed the new user by the caller. The
+  // server is the thing that knows; taking its answer means this cannot drift,
+  // whatever changed and whoever changed it. Phase 13 adds name, bio and
+  // password, and every one of them can call this same function.
+  async function refreshUser() {
+    const me = await api.get('/auth/me')
+    setUser(me.data)
+  }
+
+  const value = { user, loading, login, signup, logout, refreshUser }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

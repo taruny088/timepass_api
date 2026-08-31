@@ -103,6 +103,17 @@
      Dark enough that white initials on top of it are actually readable. */
   --avatar:         #737373;
 
+  /* A SCRIM: the dark wash laid over a photo so text on top stays readable, and
+     the dimming behind an open dialog.
+     
+     DELIBERATELY THE SAME IN BOTH THEMES, which is why it is not repeated in
+     the .dark block below. Everything else here flips because it sits on the
+     page; these sit on top of a PHOTO, and a photo is whatever colour it is
+     regardless of the theme. A "1/5" counter that turned dark-on-light in dark
+     mode would be unreadable over a light photo. */
+  --scrim:          rgb(0 0 0 / 0.6);
+  --on-scrim:       #FFFFFF;
+
   /* Tells the browser which way round we are, so the parts of the page we do
      not draw ourselves follow along: scrollbars, and the insides of native
      controls. Forget this and you get a white scrollbar glaring out of the
@@ -186,6 +197,9 @@
   --color-warn-soft:      var(--warn-soft);
 
   --color-avatar:         var(--avatar);
+
+  --color-scrim:          var(--scrim);
+  --color-on-scrim:       var(--on-scrim);
 
   /* --- The gradient ------------------------------------------------------- */
   /* This is the one part of the look that is ours and not Instagram's.

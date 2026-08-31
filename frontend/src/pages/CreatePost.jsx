@@ -1,4 +1,4 @@
-import { ImagePlus } from 'lucide-react'
+import { ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
@@ -20,12 +20,19 @@ import Input from '../components/ui/Input'
 const MAX_BYTES = 5 * 1024 * 1024
 const ACCEPTED = 'image/jpeg,image/png,image/gif,image/webp'
 
+// Instagram's own limit, matching MAX_PHOTOS_PER_POST in backend/app/posts.py.
+// Both check it: this one so the answer is instant, that one because anything
+// running in a browser can be bypassed.
+const MAX_PHOTOS = 10
+
 export default function CreatePost() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const [file, setFile] = useState(null)
-  const [previewUrl, setPreviewUrl] = useState('')
+  // An ARRAY now, not a single file, and the order of it is the order the
+  // photos will appear in the post.
+  const [files, setFiles] = useState([])
+  const [previews, setPreviews] = useState([])
   const [caption, setCaption] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -48,42 +55,72 @@ export default function CreatePost() {
   // what releases it, and the cleanup below runs it whenever the file changes
   // or the page closes.
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl('')
-      return
-    }
+    // One temporary address per chosen file.
+    const urls = files.map((f) => URL.createObjectURL(f))
+    setPreviews(urls)
 
-    const url = URL.createObjectURL(file)
-    setPreviewUrl(url)
-
-    return () => URL.revokeObjectURL(url)
-  }, [file])
+    // Release every one of them when the selection changes or the page closes.
+    //
+    // This matters more now than it did with a single photo. Ten files at 4 MB
+    // each is 40 MB the browser holds on to until told otherwise, and choosing
+    // a different ten leaves the first forty megabytes stranded. revokeObjectURL
+    // is the only thing that frees them.
+    return () => urls.forEach((url) => URL.revokeObjectURL(url))
+  }, [files])
 
   function handleFileChange(event) {
     setError('')
 
-    const chosen = event.target.files?.[0]
-    if (!chosen) return
+    // event.target.files is a FileList, not an array -- it has a length and can
+    // be indexed, and has none of the methods you would expect. Array.from
+    // turns it into a real array so .map and .filter work.
+    const chosen = Array.from(event.target.files ?? [])
+    if (chosen.length === 0) return
 
-    if (chosen.size > MAX_BYTES) {
+    // Clear the input straight away, whatever happens next.
+    //
+    // Without this, choosing the same file twice in a row does nothing: the
+    // input's value has not changed, so no event fires. It also lets someone
+    // re-choose a file after fixing the reason it was rejected.
+    event.target.value = ''
+
+    const tooBig = chosen.find((f) => f.size > MAX_BYTES)
+    if (tooBig) {
+      // Naming the file matters when ten were chosen. "One of them is too
+      // large" leaves you opening files one at a time to find out which.
       setError(
-        `That image is ${Math.round(chosen.size / (1024 * 1024))} MB. The limit is 5 MB.`,
+        `${tooBig.name} is ${Math.round(tooBig.size / (1024 * 1024))} MB. The limit is 5 MB each.`,
       )
-      // Clear the input, so the same file can be chosen again after resizing
-      // it. Without this the browser sees no change and fires nothing.
-      event.target.value = ''
       return
     }
 
-    setFile(chosen)
+    // Added to what is already chosen, rather than replacing it, so photos can
+    // be picked in more than one go.
+    const combined = [...files, ...chosen]
+
+    if (combined.length > MAX_PHOTOS) {
+      setError(
+        `A post can hold at most ${MAX_PHOTOS} photos. You have ${files.length} and chose ${chosen.length} more.`,
+      )
+      return
+    }
+
+    setFiles(combined)
+  }
+
+  function removeFile(indexToRemove) {
+    setError('')
+    // filter builds a NEW array without that photo. The remaining ones keep
+    // their order, which is what the post will use.
+    setFiles((current) => current.filter((_, i) => i !== indexToRemove))
   }
 
   async function handleSubmit(event) {
     event.preventDefault()
     setError('')
 
-    if (!file) {
-      setError('Choose a photo first.')
+    if (files.length === 0) {
+      setError('Choose at least one photo.')
       return
     }
 
@@ -100,7 +137,15 @@ export default function CreatePost() {
       // the header that must match the separators in the body. Set it by hand
       // and you get an error that looks like the file is corrupt.
       const form = new FormData()
-      form.append('image', file)
+
+      // The SAME field name for every photo, appended once per file.
+      //
+      // That is how a multipart request carries a list: not images[0],
+      // images[1] -- just "images" repeated. FastAPI collects them into
+      // list[UploadFile] in the order they were appended, which is why the
+      // order of this array is the order of the post.
+      files.forEach((f) => form.append('images', f))
+
       if (caption) form.append('caption', caption)
 
       // Note what is NOT sent: who the author is. The backend takes that from
@@ -166,9 +211,13 @@ export default function CreatePost() {
               // first bytes on the server, because a filename is a claim and
               // anyone can rename anything.
               accept={ACCEPTED}
-              // capture is what makes a phone offer the camera as well as the
-              // gallery.
-              capture="environment"
+              // multiple is the whole change. Without it the file picker only
+              // ever hands back one file, however many are highlighted.
+              //
+              // capture was removed alongside it: on some phones it forces the
+              // camera and hides the gallery entirely, which makes choosing
+              // several existing photos impossible.
+              multiple
               onChange={handleFileChange}
               className="sr-only"
             />
@@ -180,21 +229,49 @@ export default function CreatePost() {
             >
               <ImagePlus className="h-8 w-8" aria-hidden="true" />
               <span className="text-body font-semibold">
-                {file ? 'Choose a different photo' : 'Choose a photo'}
+                {files.length === 0 ? 'Choose photos' : 'Add more photos'}
               </span>
-              <span className="text-tiny">JPEG, PNG, GIF or WebP, up to 5 MB</span>
+              <span className="text-tiny">
+                {files.length === 0
+                  ? `Up to ${MAX_PHOTOS}. JPEG, PNG, GIF or WebP, 5 MB each.`
+                  : `${files.length} of ${MAX_PHOTOS} chosen`}
+              </span>
             </button>
           </div>
 
-          {previewUrl && (
-            <div className="overflow-hidden rounded-control border border-line">
-              {/* aspect-square to match how it will actually appear in the
-                  feed, so what you see here is what you get. */}
-              <img
-                src={previewUrl}
-                alt="The photo you chose"
-                className="aspect-square w-full object-cover"
-              />
+          {/* The chosen photos, in the order they will appear.
+           *
+           * A scrolling strip rather than a grid, because it mirrors what the
+           * post will actually be -- a row you swipe through. The numbers are
+           * shown for the same reason: order is the thing that is easy to get
+           * wrong and hard to notice afterwards. */}
+          {previews.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {previews.map((url, position) => (
+                <div
+                  key={url}
+                  className="relative h-24 w-24 shrink-0 overflow-hidden rounded-control border border-line"
+                >
+                  <img
+                    src={url}
+                    alt={`Photo ${position + 1} of ${previews.length}`}
+                    className="h-full w-full object-cover"
+                  />
+
+                  <span className="absolute left-1 top-1 rounded-full bg-scrim px-1.5 text-tiny font-semibold text-on-scrim">
+                    {position + 1}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => removeFile(position)}
+                    aria-label={`Remove photo ${position + 1}`}
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-scrim text-on-scrim transition active:scale-90 hover:opacity-80"
+                  >
+                    <X className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -236,12 +313,20 @@ export default function CreatePost() {
                 {/* Once it reaches 100 the file has left this device, but the
                     server is still uploading it to Cloudinary. Saying so is
                     more honest than a bar that sits full doing nothing. */}
-                {progress < 100 ? `Uploading ${progress}%` : 'Almost there...'}
+                {progress < 100
+                  ? `Uploading ${progress}%`
+                  : files.length > 1
+                    ? `Saving ${files.length} photos...`
+                    : 'Almost there...'}
               </p>
             </div>
           )}
 
-          <Button type="submit" fullWidth disabled={submitting || !file}>
+          <Button
+            type="submit"
+            fullWidth
+            disabled={submitting || files.length === 0}
+          >
             {submitting ? 'Posting...' : 'Post'}
           </Button>
         </Card>
