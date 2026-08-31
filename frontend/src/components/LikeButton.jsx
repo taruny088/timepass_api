@@ -1,3 +1,4 @@
+import { Heart } from 'lucide-react'
 import { useState } from 'react'
 import api from '../api/client'
 
@@ -69,23 +70,43 @@ export default function LikeButton({ post }) {
       <button
         onClick={handleClick}
         aria-label={liked ? 'Unlike' : 'Like'}
+        // aria-pressed is what makes this a TOGGLE to a screen reader rather
+        // than a plain button. It announces "Like, pressed" or "Like, not
+        // pressed", so the current state is audible instead of only visible in
+        // the colour of the heart.
         aria-pressed={liked}
         // Deliberately NOT disabled while the request is in flight. Being
         // able to tap again immediately is the point. Two rapid taps send
         // two requests, and the backend is idempotent precisely so that
         // cannot break anything.
-        className="text-2xl leading-none transition hover:scale-110"
+        //
+        // min-h-11 min-w-11 is the 44 pixel touch target. The old emoji was
+        // about 24 pixels of tappable area.
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-control transition hover:bg-hover active:scale-90"
       >
-        {liked ? '❤️' : '🤍'}
+        {/* The emoji hearts are gone.
+         *
+         * An emoji is drawn by the device's own font, so it looked different on
+         * every phone, could not take a colour from our tokens, and had no
+         * outline version that matched -- the white heart was a different shape
+         * from the red one.
+         *
+         * A lucide icon is one shape. Liked fills it with --color-heart;
+         * unliked leaves it as an outline in the ordinary text colour. This is
+         * finally what --color-heart was defined for in 11a: it stayed unused
+         * all through that sitting because an emoji cannot take a CSS colour. */}
+        <Heart
+          className={`h-6 w-6 transition ${liked ? 'text-heart' : 'text-ink'}`}
+          fill={liked ? 'currentColor' : 'none'}
+          aria-hidden="true"
+        />
       </button>
 
-      <span className="text-sm font-medium text-ink">
+      <span className="text-strong font-semibold text-ink">
         {count} {count === 1 ? 'like' : 'likes'}
       </span>
 
-      {failed && (
-        <span className="text-xs text-danger">could not save</span>
-      )}
+      {failed && <span className="text-tiny text-danger">could not save</span>}
     </div>
   )
 }

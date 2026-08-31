@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom'
+import Spinner from './ui/Spinner'
 import { useAuth } from '../auth/AuthContext'
 
 // The gate. Wrap any page in this and it becomes reachable only when logged in.
@@ -23,7 +24,7 @@ export default function ProtectedRoute({ children }) {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface">
-        <p className="text-ink-muted">Loading...</p>
+        <Spinner label="Loading" />
       </div>
     )
   }

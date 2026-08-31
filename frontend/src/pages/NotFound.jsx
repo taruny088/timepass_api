@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import Button from '../components/ui/Button'
 
 // Shown for any address the app does not recognise.
 //
@@ -13,19 +14,17 @@ export default function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md text-center">
-        <p className="text-5xl font-bold text-line">404</p>
-        <h1 className="mt-2 text-xl font-bold text-ink">
-          Page not found
-        </h1>
-        <p className="mt-2 text-sm text-ink-muted">
+        {/* 404 is the one deliberately oversized number in the app. It is not
+            one of the six text sizes because it is not text you read -- it is a
+            graphic, the way the icon on any other empty screen is. */}
+        <p className="text-6xl font-semibold text-line">404</p>
+        <h1 className="mt-2 text-h1 font-semibold text-ink">Page not found</h1>
+        <p className="mt-2 text-body text-ink-muted">
           That address does not exist. It may have been a typo, or the page
           may have been deleted.
         </p>
-        <Link
-          to="/"
-          className="mt-5 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent transition hover:bg-accent-hover"
-        >
-          Go home
+        <Link to="/" className="mt-6 inline-block">
+          <Button variant="primary">Go home</Button>
         </Link>
       </div>
     </div>

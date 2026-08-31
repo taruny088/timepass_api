@@ -1,10 +1,17 @@
+import { Image as ImageIcon, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import BottomNav from '../components/BottomNav'
 import FollowButton from '../components/FollowButton'
 import Header from '../components/Header'
 import PostImage from '../components/PostImage'
+import Avatar from '../components/ui/Avatar'
+import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
+import EmptyState from '../components/ui/EmptyState'
+import Spinner from '../components/ui/Spinner'
 
 export default function Profile() {
   // useParams reads the changing part of the address.
@@ -114,15 +121,15 @@ export default function Profile() {
     <div className="min-h-screen bg-surface">
       <Header />
 
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto max-w-3xl px-4 py-6 pb-24 md:pb-8">
         {/* STATE 1: loading */}
-        {loading && <p className="text-center text-ink-muted">Loading...</p>}
+        {loading && <Spinner label="Loading profile" />}
 
         {/* STATE 2: something went wrong */}
         {!loading && error && (
-          <div className="rounded-xl border border-danger-line bg-danger-soft p-6 text-center">
-            <p className="text-danger">{error}</p>
-            <Link to="/" className="mt-3 inline-block text-sm underline">
+          <div className="rounded-card border border-danger-line bg-danger-soft p-6 text-center">
+            <p className="text-body text-danger">{error}</p>
+            <Link to="/" className="mt-3 inline-block text-small underline">
               Go home
             </Link>
           </div>
@@ -130,21 +137,15 @@ export default function Profile() {
 
         {!loading && !error && profile && (
           <>
-            <section className="flex items-center gap-5 rounded-xl border border-line bg-surface p-6">
-              {/* Show the avatar if there is one, otherwise a circle with the
-                  first letter. {a ? b : c} is "this or that", as opposed to
-                  {a && b} which is "show or nothing". */}
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={profile.username}
-                  className="h-20 w-20 shrink-0 rounded-full object-cover"
-                />
-              ) : (
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-avatar text-2xl font-bold text-on-accent">
-                  {profile.username[0].toUpperCase()}
-                </div>
-              )}
+            <Card as="section" className="flex items-center gap-4 p-4 sm:gap-6 sm:p-6">
+              {/* The picture-or-first-letter block that used to be written out
+                  here by hand. Avatar already carries the shrink-0 that stops a
+                  round photo squashing into an oval beside long text. */}
+              <Avatar
+                src={profile.avatar_url}
+                username={profile.username}
+                size="lg"
+              />
 
               {/* min-w-0 looks like it does nothing, and it is the whole fix.
                *
@@ -160,14 +161,16 @@ export default function Profile() {
                * Search.jsx and CommentList.jsx already do this. Profile was the
                * one that got missed. */}
               <div className="min-w-0">
-                <h1 className="text-2xl font-bold break-words text-ink">
+                <h1 className="text-h1 font-semibold break-words text-ink">
                   {profile.username}
                 </h1>
                 {profile.full_name && (
-                  <p className="text-ink-muted">{profile.full_name}</p>
+                  <p className="text-body text-ink-muted">{profile.full_name}</p>
                 )}
                 {profile.bio && (
-                  <p className="mt-1 text-sm text-ink-muted">{profile.bio}</p>
+                  <p className="mt-1 break-words text-small text-ink-muted">
+                    {profile.bio}
+                  </p>
                 )}
                 {/* The three counts. All computed by the backend when
                     asked, never stored, so they cannot drift out of step
@@ -179,7 +182,7 @@ export default function Profile() {
                     Those two come from the same table read from opposite
                     directions, and mixing them up is the classic bug in
                     this part of the app. */}
-                <div className="mt-2 flex gap-4 text-sm text-ink">
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-small text-ink">
                   <span>
                     <span className="font-semibold">{profile.post_count}</span>{' '}
                     {profile.post_count === 1 ? 'post' : 'posts'}
@@ -212,16 +215,26 @@ export default function Profile() {
                   </div>
                 )}
               </div>
-            </section>
+            </Card>
 
             {/* STATE 3: the person exists but has nothing yet. A clear
                 message, not a blank space that looks broken. */}
             {posts.length === 0 ? (
-              <p className="mt-8 text-center text-ink-muted">
-                {isMe
-                  ? 'You have not posted anything yet.'
-                  : `${profile.username} has not posted anything yet.`}
-              </p>
+              <EmptyState
+                icon={ImageIcon}
+                title={isMe ? 'No posts yet' : 'Nothing here yet'}
+                message={
+                  isMe
+                    ? 'Your posts will appear here as a grid once you share one.'
+                    : `${profile.username} has not posted anything yet.`
+                }
+              >
+                {isMe && (
+                  <Link to="/create">
+                    <Button variant="primary">Share your first post</Button>
+                  </Link>
+                )}
+              </EmptyState>
             ) : (
               <div className="mt-6 grid grid-cols-3 gap-1 sm:gap-2">
                 {/* .map turns a list of data into a list of things to draw.
@@ -240,13 +253,25 @@ export default function Profile() {
 
                     {/* Only drawn on your own posts. Decoration -- the real
                         protection is the 403 the backend returns. */}
+                    {/* THE PHONE BUG THIS FIXES.
+                     *
+                     * This button used to be opacity-0 until group-hover. A
+                     * touch screen has no hover, so on a phone there was
+                     * genuinely no way to delete your own post -- the button
+                     * existed and could never be revealed.
+                     *
+                     * Now it is always visible on a phone, and the hover reveal
+                     * only applies from md: up, where a pointer exists. That is
+                     * mobile first in practice: the phone case is the plain
+                     * classes, and the desktop nicety is the addition. */}
                     {isMe && (
                       <button
                         onClick={() => handleDelete(post.id)}
+                        aria-label="Delete post"
                         title="Delete post"
-                        className="absolute right-1 top-1 rounded bg-surface/90 px-2 py-1 text-xs font-medium text-danger opacity-0 transition group-hover:opacity-100"
+                        className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-control bg-surface/90 text-danger transition md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                       >
-                        Delete
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -256,6 +281,8 @@ export default function Profile() {
           </>
         )}
       </main>
+
+      <BottomNav />
     </div>
   )
 }

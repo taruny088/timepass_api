@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
+import Input from '../components/ui/Input'
 import Logo from '../components/Logo'
 
 export default function Login() {
@@ -72,75 +75,50 @@ export default function Login() {
           Log in to see your feed
         </p>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-line bg-surface p-6"
-        >
+        <Card as="form" onSubmit={handleSubmit} className="space-y-4 p-6">
           {/* The error state. Rendered only when there is something to say:
               the && means "if error is non-empty, draw this". */}
           {error && (
             <p
               role="alert"
-              className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger"
+              className="rounded-control bg-danger-soft px-3 py-2 text-small text-danger"
             >
               {error}
             </p>
           )}
 
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1 block text-sm font-medium text-ink"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
-              placeholder="you@example.com"
-            />
-          </div>
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+          />
 
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-1 block text-sm font-medium text-ink"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
-              placeholder="••••••••"
-            />
-          </div>
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+            placeholder="••••••••"
+          />
 
           {/* disabled while submitting, so an impatient double click cannot
               send the same login twice. */}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-accent py-2 font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-accent-soft"
-          >
+          <Button type="submit" fullWidth disabled={submitting}>
             {submitting ? 'Logging in...' : 'Log in'}
-          </button>
-        </form>
+          </Button>
+        </Card>
 
-        <p className="mt-4 text-center text-sm text-ink-muted">
+        <p className="mt-4 text-center text-small text-ink-muted">
           No account?{' '}
           {/* <Link> instead of <a>. An <a> would reload the entire page and
               throw away all React state. Link swaps the component instead. */}
-          <Link to="/signup" className="font-medium text-ink underline">
+          <Link to="/signup" className="font-semibold text-ink underline">
             Sign up
           </Link>
         </p>

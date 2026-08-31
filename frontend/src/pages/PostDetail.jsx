@@ -3,7 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import CommentList from '../components/CommentList'
+import BottomNav from '../components/BottomNav'
 import Header from '../components/Header'
+import Card from '../components/ui/Card'
+import Spinner from '../components/ui/Spinner'
 import PostCard from '../components/PostCard'
 
 // One post on its own page, at /post/12.
@@ -69,13 +72,13 @@ export default function PostDetail() {
     <div className="min-h-screen bg-surface">
       <Header />
 
-      <main className="mx-auto max-w-lg px-4 py-8">
-        {loading && <p className="text-center text-ink-muted">Loading...</p>}
+      <main className="mx-auto max-w-lg px-4 py-6 pb-24 md:pb-8">
+        {loading && <Spinner label="Loading post" />}
 
         {!loading && error && (
-          <div className="rounded-xl border border-danger-line bg-danger-soft p-6 text-center">
-            <p className="text-danger">{error}</p>
-            <Link to="/" className="mt-3 inline-block text-sm underline">
+          <div className="rounded-card border border-danger-line bg-danger-soft p-6 text-center">
+            <p className="text-body text-danger">{error}</p>
+            <Link to="/" className="mt-3 inline-block text-small underline">
               Go home
             </Link>
           </div>
@@ -85,7 +88,7 @@ export default function PostDetail() {
             still only shows on your own posts, which PostCard decides. The
             feed does not pass it, so no delete buttons appear there. */}
         {!loading && !error && post && (
-          <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          <Card className="overflow-hidden">
             {/* showCommentsLink is off here: this page draws the actual
                 comments below, so a link to itself would be pointless. */}
             <PostCard
@@ -94,9 +97,11 @@ export default function PostDetail() {
               showCommentsLink={false}
             />
             <CommentList post={post} onCountChange={handleCommentCountChange} />
-          </div>
+          </Card>
         )}
       </main>
+
+      <BottomNav />
     </div>
   )
 }

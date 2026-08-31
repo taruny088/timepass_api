@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import api from '../api/client'
+import Button from './ui/Button'
 
 // The follow / unfollow button.
 //
@@ -48,19 +49,19 @@ export default function FollowButton({ username, isFollowing, onChange }) {
 
   return (
     <div>
-      <button
+      {/* The two states are now just two variants of the same shared Button.
+          Following is "secondary" -- a real action, but not the one you came
+          for -- and Follow is "primary". Before this, the two states were two
+          separately hand-written class strings that had drifted apart. */}
+      <Button
+        variant={isFollowing ? 'secondary' : 'primary'}
         onClick={handleClick}
         disabled={submitting}
-        className={
-          isFollowing
-            ? 'rounded-lg border border-line px-4 py-1.5 text-sm font-medium text-ink transition hover:bg-hover disabled:opacity-50'
-            : 'rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-on-accent transition hover:bg-accent-hover disabled:bg-accent-soft'
-        }
       >
         {submitting ? '...' : isFollowing ? 'Following' : 'Follow'}
-      </button>
+      </Button>
 
-      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+      {error && <p className="mt-1 text-tiny text-danger">{error}</p>}
     </div>
   )
 }

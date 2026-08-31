@@ -1,9 +1,13 @@
+import { Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
-import { useAuth } from '../auth/AuthContext'
+import BottomNav from '../components/BottomNav'
 import Header from '../components/Header'
 import PostCard from '../components/PostCard'
+import Button from '../components/ui/Button'
+import EmptyState from '../components/ui/EmptyState'
+import Spinner from '../components/ui/Spinner'
 
 // How many posts one page holds. Must not exceed the backend's own cap of 50.
 const PAGE_SIZE = 20
@@ -13,7 +17,6 @@ const PAGE_SIZE = 20
 // PLAN.md calls this the product. Everything in Phases 2 to 6 existed so that
 // this page could ask one question and get an answer.
 export default function Home() {
-  const { user } = useAuth()
 
   const [posts, setPosts] = useState([])
 
@@ -83,14 +86,18 @@ export default function Home() {
     <div className="min-h-screen bg-surface">
       <Header />
 
-      <main className="mx-auto max-w-lg px-4 py-8">
+      {/* pb-24 leaves room for BottomNav, which is `fixed` and therefore sits
+          ON TOP of the page rather than pushing it down. Without this padding
+          the last post hides permanently underneath the bar and no amount of
+          scrolling reaches it. md:pb-8 takes it back once the bar is gone. */}
+      <main className="mx-auto max-w-lg px-4 py-6 pb-24 md:pb-8">
         {/* STATE 1: loading */}
-        {loading && <p className="text-center text-ink-muted">Loading feed...</p>}
+        {loading && <Spinner label="Loading feed" />}
 
         {/* STATE 2: it failed */}
         {!loading && error && posts.length === 0 && (
-          <div className="rounded-xl border border-danger-line bg-danger-soft p-6 text-center">
-            <p className="text-danger">{error}</p>
+          <div className="rounded-card border border-danger-line bg-danger-soft p-6 text-center">
+            <p className="text-body text-danger">{error}</p>
           </div>
         )}
 
@@ -99,21 +106,18 @@ export default function Home() {
             of a blank screen when I follow nobody yet." A blank page looks
             broken; this explains what to do next. */}
         {!loading && !error && posts.length === 0 && (
-          <div className="rounded-xl border border-line bg-surface p-8 text-center">
-            <h2 className="text-lg font-semibold text-ink">
-              Your feed is empty
-            </h2>
-            <p className="mt-2 text-sm text-ink-muted">
-              Your feed shows posts from people you follow. Find someone and
-              follow them, and their posts will appear here.
-            </p>
-            <Link
-              to={`/profile/${user.username}`}
-              className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent transition hover:bg-accent-hover"
-            >
-              Go to my profile
+          <EmptyState
+            icon={Users}
+            title="Your feed is empty"
+            message="Your feed shows posts from people you follow. Find someone and follow them, and their posts will appear here."
+          >
+            {/* The words still come from here, not from EmptyState. That file
+                owns the shape; this one owns the meaning. A shared empty state
+                that wrote its own message would be a hardcoded placeholder. */}
+            <Link to="/search">
+              <Button variant="primary">Find people</Button>
             </Link>
-          </div>
+          </EmptyState>
         )}
 
         {/* STATE 4: posts */}
@@ -131,29 +135,33 @@ export default function Home() {
         {/* An error that happened while loading MORE, with posts already on
             screen. Shown under them rather than replacing them. */}
         {error && posts.length > 0 && (
-          <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-center text-sm text-danger">
+          <p className="mt-4 rounded-control bg-danger-soft px-3 py-2 text-center text-small text-danger">
             {error}
           </p>
         )}
 
         {hasMore && (
-          <button
+          <Button
+            variant="secondary"
+            fullWidth
             onClick={loadMore}
             disabled={loadingMore}
-            className="mt-6 w-full rounded-lg border border-line bg-surface py-2 text-sm font-medium text-ink transition hover:bg-hover disabled:opacity-50"
+            className="mt-6"
           >
             {loadingMore ? 'Loading...' : 'Load more'}
-          </button>
+          </Button>
         )}
 
         {/* Only say "you have reached the end" once there is actually
             something above it to have reached the end of. */}
         {!loading && !hasMore && posts.length > 0 && (
-          <p className="mt-6 text-center text-sm text-ink-muted">
+          <p className="mt-6 text-center text-small text-ink-muted">
             You are all caught up.
           </p>
         )}
       </main>
+
+      <BottomNav />
     </div>
   )
 }

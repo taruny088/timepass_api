@@ -20,7 +20,7 @@ export default function PostImage({ src, alt, className = '' }) {
       <div
         className={`flex items-center justify-center bg-hover text-center ${className}`}
       >
-        <span className="px-2 text-xs text-ink-muted">Image unavailable</span>
+        <span className="px-2 text-tiny text-ink-muted">Image unavailable</span>
       </div>
     )
   }

@@ -2,7 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import BottomNav from '../components/BottomNav'
 import Header from '../components/Header'
+import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
+import Input from '../components/ui/Input'
 
 // PLAN.md feature 4: "Add a photo by pasting an image link, with a caption."
 // No file uploading -- we store the address of an image, never the image.
@@ -56,53 +60,39 @@ export default function CreatePost() {
     <div className="min-h-screen bg-surface">
       <Header />
 
-      <main className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="mb-4 text-2xl font-bold text-ink">New post</h1>
+      <main className="mx-auto max-w-lg px-4 py-6 pb-24 md:pb-8">
+        <h1 className="mb-4 text-h1 font-semibold text-ink">New post</h1>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-line bg-surface p-6"
-        >
+        <Card as="form" onSubmit={handleSubmit} className="space-y-4 p-6">
           {error && (
             <p
               role="alert"
-              className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger"
+              className="rounded-control bg-danger-soft px-3 py-2 text-small text-danger"
             >
               {error}
             </p>
           )}
 
-          <div>
-            <label
-              htmlFor="imageUrl"
-              className="mb-1 block text-sm font-medium text-ink"
-            >
-              Image link
-            </label>
-            <input
-              id="imageUrl"
-              type="url"
-              value={imageUrl}
-              onChange={(e) => {
-                setImageUrl(e.target.value)
-                setImageBroken(false)
-              }}
-              required
-              maxLength={500}
-              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
-              placeholder="https://picsum.photos/600"
-            />
-            <p className="mt-1 text-xs text-ink-muted">
-              Paste a link to an image. Try https://picsum.photos/600
-            </p>
-          </div>
+          <Input
+            label="Image link"
+            hint="Paste a link to an image. Try https://picsum.photos/600"
+            type="url"
+            value={imageUrl}
+            onChange={(e) => {
+              setImageUrl(e.target.value)
+              setImageBroken(false)
+            }}
+            required
+            maxLength={500}
+            placeholder="https://picsum.photos/600"
+          />
 
           {/* The preview. onError fires when the browser cannot load the
               image, which is how we catch a wrong link before saving it. */}
           {showPreview && (
-            <div className="overflow-hidden rounded-lg border border-line">
+            <div className="overflow-hidden rounded-control border border-line">
               {imageBroken ? (
-                <p className="bg-warn-soft px-3 py-6 text-center text-sm text-warn">
+                <p className="bg-warn-soft px-3 py-6 text-center text-small text-warn">
                   That link did not load as an image. You can still post it,
                   but it will show as a broken picture.
                 </p>
@@ -118,36 +108,27 @@ export default function CreatePost() {
           )}
 
           <div>
-            <label
-              htmlFor="caption"
-              className="mb-1 block text-sm font-medium text-ink"
-            >
-              Caption{' '}
-              <span className="font-normal text-ink-muted">(optional)</span>
-            </label>
-            <textarea
-              id="caption"
+            <Input
+              label="Caption (optional)"
+              multiline
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               maxLength={2200}
               rows={3}
-              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="Say something about it"
             />
-            <p className="mt-1 text-right text-xs text-ink-muted">
+            <p className="mt-1 text-right text-tiny text-ink-muted">
               {caption.length} / 2200
             </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-accent py-2 font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-accent-soft"
-          >
+          <Button type="submit" fullWidth disabled={submitting}>
             {submitting ? 'Posting...' : 'Post'}
-          </button>
-        </form>
+          </Button>
+        </Card>
       </main>
+
+      <BottomNav />
     </div>
   )
 }

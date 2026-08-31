@@ -1,7 +1,10 @@
+import { MessageCircle, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import LikeButton from './LikeButton'
 import PostImage from './PostImage'
+import Avatar from './ui/Avatar'
+import Card from './ui/Card'
 
 // One post, drawn once, used everywhere.
 //
@@ -36,24 +39,24 @@ export default function PostCard({
   const isMine = me?.id === post.author.id
 
   return (
-    <article className="overflow-hidden rounded-xl border border-line bg-surface">
-      <div className="flex items-center justify-between px-4 py-3">
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
         <Link
           to={`/profile/${post.author.username}`}
-          className="flex items-center gap-3"
+          // min-w-0 so a long username wraps instead of pushing the delete
+          // button off the edge of a phone screen.
+          className="flex min-w-0 items-center gap-3"
         >
-          {post.author.avatar_url ? (
-            <img
-              src={post.author.avatar_url}
-              alt={post.author.username}
-              className="h-9 w-9 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-avatar text-sm font-bold text-on-accent">
-              {post.author.username[0].toUpperCase()}
-            </div>
-          )}
-          <span className="font-medium text-ink hover:underline">
+          {/* Three copies of the picture-or-first-letter block used to live in
+              this app. Now there is one, and it already handles the shrink-0
+              that stops a round photo squashing into an oval next to long
+              text. */}
+          <Avatar
+            src={post.author.avatar_url}
+            username={post.author.username}
+            size="sm"
+          />
+          <span className="truncate text-strong font-semibold text-ink hover:underline">
             {post.author.username}
           </span>
         </Link>
@@ -62,9 +65,11 @@ export default function PostCard({
         {isMine && onDelete && (
           <button
             onClick={() => onDelete(post.id)}
-            className="text-sm font-medium text-danger hover:underline"
+            aria-label="Delete post"
+            title="Delete post"
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control text-ink-muted transition hover:bg-danger-soft hover:text-danger"
           >
-            Delete
+            <Trash2 className="h-5 w-5" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -78,9 +83,25 @@ export default function PostCard({
       </Link>
 
       <div className="px-4 py-3">
-        {/* The heart owns its own state, because it changes before the
-            server replies. See LikeButton for why. */}
-        <LikeButton post={post} />
+        {/* The action row: heart, then comment. Icons rather than words, which
+            is what PLAN2 asks for under a post -- and what makes the row read
+            at a glance instead of being read word by word. */}
+        <div className="flex items-center gap-4">
+          {/* The heart owns its own state, because it changes before the
+              server replies. See LikeButton for why. */}
+          <LikeButton post={post} />
+
+          {showCommentsLink && (
+            <Link
+              to={`/post/${post.id}`}
+              aria-label="Comments"
+              title="Comments"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-ink transition hover:bg-hover"
+            >
+              <MessageCircle className="h-6 w-6" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
 
         {/* whitespace-pre-wrap keeps the line breaks someone typed. It does not
             help with a single long unbroken run of characters, though -- a
@@ -91,7 +112,7 @@ export default function PostCard({
             option. Only then: ordinary sentences still break at spaces as
             normal, so nothing else changes. */}
         {post.caption && (
-          <p className="mt-2 whitespace-pre-wrap break-words text-ink">
+          <p className="mt-2 whitespace-pre-wrap break-words text-body text-ink">
             {post.caption}
           </p>
         )}
@@ -102,7 +123,7 @@ export default function PostCard({
         {showCommentsLink && (
           <Link
             to={`/post/${post.id}`}
-            className="mt-1 block text-sm text-ink-muted hover:underline"
+            className="mt-2 block text-small text-ink-muted hover:underline"
           >
             {post.comment_count === 0
               ? 'Add a comment'
@@ -113,10 +134,10 @@ export default function PostCard({
         )}
         {/* Stored as UTC, shown in the reader's own local time -- the rule
             set back in Phase 2 when created_at was given a timezone. */}
-        <p className="mt-2 text-xs text-ink-muted">
+        <p className="mt-2 text-tiny text-ink-muted">
           {new Date(post.created_at).toLocaleString()}
         </p>
       </div>
-    </article>
+    </Card>
   )
 }

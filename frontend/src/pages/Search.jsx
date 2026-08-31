@@ -1,7 +1,14 @@
+import { SearchX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
+import BottomNav from '../components/BottomNav'
 import Header from '../components/Header'
+import Avatar from '../components/ui/Avatar'
+import Card from '../components/ui/Card'
+import EmptyState from '../components/ui/EmptyState'
+import Input from '../components/ui/Input'
+import Spinner from '../components/ui/Spinner'
 
 // How long to wait after the last keystroke before asking the server.
 // 300ms is long enough to skip the letters of a word being typed, and short
@@ -82,33 +89,32 @@ export default function Search() {
     <div className="min-h-screen bg-surface">
       <Header />
 
-      <main className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="mb-4 text-2xl font-bold text-ink">Find people</h1>
+      <main className="mx-auto max-w-lg px-4 py-6 pb-24 md:pb-8">
+        <h1 className="mb-4 text-h1 font-semibold text-ink">Find people</h1>
 
-        <input
+        <Input
+          label="Search by username or name"
+          hideLabel
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           maxLength={50}
           autoFocus
           placeholder="Search by username or name"
-          className="w-full rounded-lg border border-line px-4 py-2 outline-none focus:border-ink"
         />
 
         <div className="mt-4">
           {/* Nothing typed yet: a prompt, so the empty space is explained. */}
           {!query.trim() && (
-            <p className="text-center text-sm text-ink-muted">
+            <p className="text-center text-small text-ink-muted">
               Type a name to search.
             </p>
           )}
 
-          {loading && (
-            <p className="text-center text-sm text-ink-muted">Searching...</p>
-          )}
+          {loading && <Spinner label="Searching" />}
 
           {error && (
-            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
+            <p className="rounded-control bg-danger-soft px-3 py-2 text-small text-danger">
               {error}
             </p>
           )}
@@ -117,36 +123,32 @@ export default function Search() {
               the search ran and genuinely found nothing, rather than looking
               like it silently failed. */}
           {!loading && !error && searchedFor && results.length === 0 && (
-            <p className="text-center text-sm text-ink-muted">
-              No one found for &ldquo;{searchedFor}&rdquo;.
-            </p>
+            <EmptyState
+              icon={SearchX}
+              title="No one found"
+              message={`Nothing matched “${searchedFor}”. Try a different spelling, or part of a name.`}
+            />
           )}
 
           {results.length > 0 && (
-            <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+            <Card as="ul" className="divide-y divide-line overflow-hidden">
               {results.map((person) => (
                 <li key={person.id}>
                   <Link
                     to={`/profile/${person.username}`}
                     className="flex items-center gap-3 px-4 py-3 transition hover:bg-hover"
                   >
-                    {person.avatar_url ? (
-                      <img
-                        src={person.avatar_url}
-                        alt={person.username}
-                        className="h-10 w-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-avatar font-bold text-on-accent">
-                        {person.username[0].toUpperCase()}
-                      </div>
-                    )}
+                    <Avatar
+                      src={person.avatar_url}
+                      username={person.username}
+                      size="md"
+                    />
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-ink">
+                      <p className="truncate text-strong font-semibold text-ink">
                         {person.username}
                       </p>
                       {person.full_name && (
-                        <p className="truncate text-sm text-ink-muted">
+                        <p className="truncate text-small text-ink-muted">
                           {person.full_name}
                         </p>
                       )}
@@ -154,10 +156,12 @@ export default function Search() {
                   </Link>
                 </li>
               ))}
-            </ul>
+            </Card>
           )}
         </div>
       </main>
+
+      <BottomNav />
     </div>
   )
 }

@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
+import Button from './ui/Button'
+import Input from './ui/Input'
+import Spinner from './ui/Spinner'
 import { useAuth } from '../auth/AuthContext'
 
 // The comments under one post, plus the box for writing a new one.
@@ -94,14 +98,14 @@ export default function CommentList({ post, onCountChange }) {
 
   return (
     <section className="border-t border-line px-4 py-3">
-      <h2 className="mb-2 text-sm font-semibold text-ink">
+      <h2 className="mb-2 text-strong font-semibold text-ink">
         {comments.length === 1 ? '1 comment' : `${comments.length} comments`}
       </h2>
 
-      {loading && <p className="text-sm text-ink-muted">Loading comments...</p>}
+      {loading && <Spinner label="Loading comments" className="py-4" />}
 
       {error && (
-        <p className="mb-2 rounded bg-danger-soft px-2 py-1 text-sm text-danger">
+        <p className="mb-2 rounded-control bg-danger-soft px-2 py-1 text-small text-danger">
           {error}
         </p>
       )}
@@ -109,7 +113,7 @@ export default function CommentList({ post, onCountChange }) {
       {/* The empty state: a clear sentence, not a blank gap that looks
           like something failed to load. */}
       {!loading && comments.length === 0 && (
-        <p className="text-sm text-ink-muted">
+        <p className="text-small text-ink-muted">
           No comments yet. Be the first.
         </p>
       )}
@@ -118,27 +122,34 @@ export default function CommentList({ post, onCountChange }) {
         <ul className="space-y-2">
           {comments.map((comment) => (
             <li key={comment.id} className="group flex items-start gap-2">
-              <div className="min-w-0 flex-1 text-sm">
+              <div className="min-w-0 flex-1 text-small">
                 <Link
                   to={`/profile/${comment.author.username}`}
                   className="font-semibold text-ink hover:underline"
                 >
                   {comment.author.username}
                 </Link>{' '}
-                <span className="whitespace-pre-wrap text-ink">
+                <span className="whitespace-pre-wrap break-words text-ink">
                   {comment.body}
                 </span>
-                <p className="text-xs text-ink-muted">
+                <p className="text-tiny text-ink-muted">
                   {new Date(comment.created_at).toLocaleString()}
                 </p>
               </div>
 
+              {/* The same touch bug as the profile grid: this was opacity-0
+                  until hover, and a touch screen has no hover, so deleting your
+                  own comment was impossible on a phone. Visible by default now;
+                  the hover reveal only applies from md: up, where a pointer
+                  exists. */}
               {canDelete(comment) && (
                 <button
                   onClick={() => handleDelete(comment.id)}
-                  className="shrink-0 text-xs font-medium text-danger opacity-0 transition group-hover:opacity-100"
+                  aria-label="Delete comment"
+                  title="Delete comment"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-ink-muted transition hover:bg-danger-soft hover:text-danger md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                 >
-                  Delete
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>
               )}
             </li>
@@ -146,24 +157,26 @@ export default function CommentList({ post, onCountChange }) {
         </ul>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
-        <input
-          type="text"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          maxLength={2200}
-          placeholder="Add a comment..."
-          className="flex-1 rounded-lg border border-line px-3 py-1.5 text-sm outline-none focus:border-ink"
-        />
-        <button
+      <form onSubmit={handleSubmit} className="mt-3 flex items-start gap-2">
+        <div className="flex-1">
+          <Input
+            label="Add a comment"
+            hideLabel
+            type="text"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={2200}
+            placeholder="Add a comment..."
+          />
+        </div>
+        <Button
           type="submit"
           // Disabled while empty, so the button cannot be pressed for a
           // comment that would be rejected anyway.
           disabled={submitting || !body.trim()}
-          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-accent-soft"
         >
           {submitting ? '...' : 'Post'}
-        </button>
+        </Button>
       </form>
     </section>
   )

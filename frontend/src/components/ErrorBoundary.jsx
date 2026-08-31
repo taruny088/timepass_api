@@ -1,3 +1,4 @@
+import Button from './ui/Button'
 import { Component } from 'react'
 
 // Catches a crash anywhere inside the app and shows something useful.
@@ -52,11 +53,11 @@ export default class ErrorBoundary extends Component {
 
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface px-4">
-        <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 text-center">
-          <h1 className="text-xl font-bold text-ink">
+        <div className="w-full max-w-md rounded-card border border-line bg-surface p-6 text-center">
+          <h1 className="text-h1 font-semibold text-ink">
             Something went wrong
           </h1>
-          <p className="mt-2 text-sm text-ink-muted">
+          <p className="mt-2 text-body text-ink-muted">
             The page could not be displayed. This is a problem in the app, not
             something you did.
           </p>
@@ -64,16 +65,13 @@ export default class ErrorBoundary extends Component {
           {/* The technical detail, shown small rather than hidden. If you are
               debugging your own app, having the message on screen saves
               opening devtools. */}
-          <p className="mt-4 break-words rounded-lg bg-hover px-3 py-2 text-left font-mono text-xs text-ink-muted">
+          <p className="mt-4 break-words rounded-control bg-hover px-3 py-2 text-left font-mono text-tiny text-ink-muted">
             {this.state.message}
           </p>
 
-          <button
-            onClick={this.handleReload}
-            className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent transition hover:bg-accent-hover"
-          >
+          <Button onClick={this.handleReload} className="mt-4">
             Go back home
-          </button>
+          </Button>
         </div>
       </div>
     )
