@@ -45,11 +45,29 @@ export default function Logo({ className = 'h-8 w-8' }) {
           {/* The three brand colours from index.css. offset is how far along
               the gradient each colour sits: start, middle, end.
 
-              Read from a CSS variable rather than typed in, so the colours are
-              still decided in exactly one place. */}
-          <stop offset="0%" stopColor="var(--color-brand-start)" />
-          <stop offset="50%" stopColor="var(--color-brand-mid)" />
-          <stop offset="100%" stopColor="var(--color-brand-end)" />
+              WHY style={{...}} AND NOT stopColor="...".
+
+              The obvious way to write this is stopColor="var(--color-brand-
+              start)". It does not work, and it fails silently, which is worse
+              than failing loudly.
+
+              stopColor written as an attribute is a PRESENTATION ATTRIBUTE --
+              an SVG attribute that sets a style. But var() is a feature of CSS
+              declarations, and presentation attributes are not reliably treated
+              as declarations. Where it fails the browser cannot resolve the
+              value, so it falls back to the default stop-color, which is black.
+
+              The result was a black hourglass in light mode -- which still
+              looks like a logo, so it passed inspection -- and an invisible one
+              in dark mode, black on black.
+
+              A style={{...}} object IS a real CSS declaration, so var()
+              resolves there. The colours still come from the tokens; nothing is
+              hardcoded. Same rule applies to fill and stroke: if you ever want
+              a token in one, it has to go through style. */}
+          <stop offset="0%" style={{ stopColor: 'var(--color-brand-start)' }} />
+          <stop offset="50%" style={{ stopColor: 'var(--color-brand-mid)' }} />
+          <stop offset="100%" style={{ stopColor: 'var(--color-brand-end)' }} />
         </linearGradient>
       </defs>
 

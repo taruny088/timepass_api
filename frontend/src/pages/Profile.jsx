@@ -138,16 +138,29 @@ export default function Profile() {
                 <img
                   src={profile.avatar_url}
                   alt={profile.username}
-                  className="h-20 w-20 rounded-full object-cover"
+                  className="h-20 w-20 shrink-0 rounded-full object-cover"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-avatar text-2xl font-bold text-on-accent">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-avatar text-2xl font-bold text-on-accent">
                   {profile.username[0].toUpperCase()}
                 </div>
               )}
 
-              <div>
-                <h1 className="text-2xl font-bold text-ink">
+              {/* min-w-0 looks like it does nothing, and it is the whole fix.
+               *
+               * A flex item silently gets min-width:auto, which means "never
+               * shrink below your own content". So a long username cannot wrap
+               * -- it just pushes this column wider, and the page with it.
+               * min-w-0 removes that floor, and the text wraps instead.
+               *
+               * shrink-0 on the avatar above is the other half. Without it the
+               * flex row would take the space out of the picture instead, and
+               * a round profile photo squashes into an oval.
+               *
+               * Search.jsx and CommentList.jsx already do this. Profile was the
+               * one that got missed. */}
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold break-words text-ink">
                   {profile.username}
                 </h1>
                 {profile.full_name && (

@@ -30,7 +30,26 @@ export default function Header() {
           <Logo className="h-8 w-8" />
         </Link>
 
-        <nav className="flex items-center gap-2">
+        {/* flex-wrap is what stops the whole page scrolling sideways on a phone.
+         *
+         * A flex item can shrink, but never below its min-content width -- the
+         * longest single word inside it plus its padding. Six text buttons hit
+         * that floor at roughly 380px, and with the logo and the outer padding
+         * the row needs about 445px against a 375px screen. The extra 70px is
+         * what you were scrolling to reach.
+         *
+         * The header itself was never cut off, by the way. It is a block
+         * element, so it paints exactly the width of the screen; it was the nav
+         * inside that escaped it, which is why scrolling right ran off the end
+         * of the header background.
+         *
+         * flex-wrap lets the row fall onto a second line instead of forcing the
+         * page wider. The header gets taller on a phone, which is not pretty --
+         * but nothing is cut off and nothing scrolls sideways.
+         *
+         * This is a stopgap, on purpose. 11b replaces this row with a bar of
+         * icons along the bottom on a phone, which is the real answer. */}
+        <nav className="flex flex-wrap items-center justify-end gap-2">
           {/* The logo above already links home, but a logo is not an obvious
               button to everyone. An explicit link costs nothing. */}
           <Link

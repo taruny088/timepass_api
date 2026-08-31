@@ -82,8 +82,16 @@ export default function PostCard({
             server replies. See LikeButton for why. */}
         <LikeButton post={post} />
 
+        {/* whitespace-pre-wrap keeps the line breaks someone typed. It does not
+            help with a single long unbroken run of characters, though -- a
+            pasted URL has nowhere to wrap, so it runs straight off the edge and
+            drags the page with it.
+
+            break-words allows a break inside a word when there is no other
+            option. Only then: ordinary sentences still break at spaces as
+            normal, so nothing else changes. */}
         {post.caption && (
-          <p className="mt-2 whitespace-pre-wrap text-ink">
+          <p className="mt-2 whitespace-pre-wrap break-words text-ink">
             {post.caption}
           </p>
         )}
