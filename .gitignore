@@ -13,3 +13,10 @@ __pycache__/
 .vscode/
 .idea/
 Thumbs.db
+
+# Phase 12 — database exports.
+#
+# NEVER COMMIT THESE. A backup contains every row of the users table, which
+# means real email addresses and password hashes. Publishing that to a public
+# repository is a data breach, not an untidy commit.
+backend/backups/
