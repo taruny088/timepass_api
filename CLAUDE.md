@@ -1,10 +1,10 @@
 # How to work with me
 
-**Current work: Phase 11c-ii — works locally, pushed. Waiting on the live check.**
-(11a, 11b and 11c-i done and tested live. Design system: `frontend/src/index.css`.
-Shared pieces: `frontend/src/components/ui/`. After the live check, the side-by-side
-comparison against real Instagram ends Phase 11 — then Phase 12, photos and uploads,
-where Alembic starts.)
+**Current work: the side-by-side comparison against real Instagram, which ends Phase 11.**
+(11a, 11b, 11c-i and 11c-ii all done and tested live. Design system:
+`frontend/src/index.css`. Shared pieces: `frontend/src/components/ui/`. The comparison
+is user-led — he holds both phones and lists the differences. Then Phase 12, photos and
+uploads, where Alembic starts.)
 (Keep this line up to date. It is the first thing to read at the start of a session.)
 
 ## My situation
