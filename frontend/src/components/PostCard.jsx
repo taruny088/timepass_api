@@ -1,12 +1,11 @@
-import { Heart, MessageCircle, Trash2 } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
 import timeAgo from '../lib/timeAgo'
 import useLike from '../lib/useLike'
-import LikeButton from './LikeButton'
+import PostActions from './PostActions'
+import PostHeader from './PostHeader'
 import PostImage from './PostImage'
-import Avatar from './ui/Avatar'
 import Card from './ui/Card'
 
 // How long a caption can be before it is cut off behind a "more" link.
@@ -31,8 +30,6 @@ export default function PostCard({
   onDelete,
   showCommentsLink = true,
 }) {
-  const { user: me } = useAuth()
-
   // LIFTING STATE UP.
   //
   // Called HERE, once, and handed to both the photo and the heart below. It
@@ -46,11 +43,6 @@ export default function PostCard({
 
   const [expanded, setExpanded] = useState(false)
   const [burst, setBurst] = useState(false)
-
-  // Only affects what is drawn. The backend checks ownership again on every
-  // delete request and answers 403 to anyone else, because a hidden button
-  // stops nobody.
-  const isMine = me?.id === post.author.id
 
   // ---------------------------------------------------------------------
   // DOUBLE TAP
@@ -115,32 +107,7 @@ export default function PostCard({
 
   return (
     <Card as="article" className="overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-4 py-3">
-        <Link
-          to={`/profile/${post.author.username}`}
-          className="flex min-w-0 items-center gap-3"
-        >
-          <Avatar
-            src={post.author.avatar_url}
-            username={post.author.username}
-            size="sm"
-          />
-          <span className="truncate text-strong font-semibold text-ink hover:underline">
-            {post.author.username}
-          </span>
-        </Link>
-
-        {isMine && onDelete && (
-          <button
-            onClick={() => onDelete(post.id)}
-            aria-label="Delete post"
-            title="Delete post"
-            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control text-ink-muted transition active:scale-90 hover:bg-danger-soft hover:text-danger"
-          >
-            <Trash2 className="h-5 w-5" aria-hidden="true" />
-          </button>
-        )}
-      </div>
+      <PostHeader post={post} onDelete={onDelete} />
 
       {/* THE PHOTO IS NO LONGER A LINK, and that is deliberate.
        *
@@ -171,25 +138,13 @@ export default function PostCard({
       </div>
 
       <div className="px-4 py-3">
-        <div className="flex items-center gap-4">
-          <LikeButton
-            liked={liked}
-            count={count}
-            failed={failed}
-            onToggle={toggle}
-          />
-
-          {showCommentsLink && (
-            <Link
-              to={`/post/${post.id}`}
-              aria-label="Comments"
-              title="Comments"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-ink transition hover:bg-hover active:scale-90"
-            >
-              <MessageCircle className="h-6 w-6" aria-hidden="true" />
-            </Link>
-          )}
-        </div>
+        <PostActions
+          liked={liked}
+          count={count}
+          failed={failed}
+          onToggle={toggle}
+          commentsHref={showCommentsLink ? `/post/${post.id}` : undefined}
+        />
 
         {caption && (
           <p className="mt-2 whitespace-pre-wrap break-words text-body text-ink">

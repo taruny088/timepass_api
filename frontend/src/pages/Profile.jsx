@@ -1,4 +1,4 @@
-import { Image as ImageIcon, Trash2 } from 'lucide-react'
+import { Image as ImageIcon, Trash2, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api/client'
@@ -11,7 +11,9 @@ import Avatar from '../components/ui/Avatar'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import EmptyState from '../components/ui/EmptyState'
+import Modal from '../components/ui/Modal'
 import Spinner from '../components/ui/Spinner'
+import UserList from '../components/ui/UserList'
 
 export default function Profile() {
   // useParams reads the changing part of the address.
@@ -30,6 +32,15 @@ export default function Profile() {
   // them in now is much easier than retrofitting them later.
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // Which list the modal is showing: 'followers', 'following', or null for
+  // closed. One piece of state rather than two booleans, because the two lists
+  // can never both be open -- and two booleans would let them be.
+  const [listKind, setListKind] = useState(null)
+
+  const [listPeople, setListPeople] = useState([])
+  const [listLoading, setListLoading] = useState(false)
+  const [listError, setListError] = useState('')
 
   useEffect(() => {
     // ignore guards against a real bug called a race condition.
@@ -75,6 +86,40 @@ export default function Profile() {
     // clicking to another profile would leave the first person's photos on
     // screen forever.
   }, [username])
+
+  // Fetch the list only when one is actually asked for.
+  //
+  // This is why it is a separate effect rather than part of the profile load:
+  // most visits never open either list, and fetching both up front would be
+  // two requests nobody asked for on every single profile view.
+  useEffect(() => {
+    if (!listKind) return
+
+    let ignore = false
+
+    setListLoading(true)
+    setListError('')
+    // Clear the previous list immediately. Without this, switching from
+    // followers to following shows the OLD names for a moment under the NEW
+    // heading, which reads as a bug.
+    setListPeople([])
+
+    api
+      .get(`/users/${username}/${listKind}`)
+      .then((response) => {
+        if (!ignore) setListPeople(response.data)
+      })
+      .catch((err) => {
+        if (!ignore) setListError(err.userMessage || 'Could not load that list.')
+      })
+      .finally(() => {
+        if (!ignore) setListLoading(false)
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [listKind, username])
 
   // Is this my own profile? Decides whether delete buttons are drawn.
   //
@@ -187,18 +232,31 @@ export default function Profile() {
                     <span className="font-semibold">{profile.post_count}</span>{' '}
                     {profile.post_count === 1 ? 'post' : 'posts'}
                   </span>
-                  <span>
+                  {/* These two are BUTTONS now, not text. A count you can open
+                      is a control, and a control has to say so -- it needs a
+                      hover state, a press state and a thumb-sized target, or
+                      nobody discovers it is tappable.
+
+                      The post count stays plain text because there is nothing
+                      to open: the grid is already below. */}
+                  <button
+                    onClick={() => setListKind('followers')}
+                    className="rounded-control transition hover:underline active:opacity-70"
+                  >
                     <span className="font-semibold">
                       {profile.follower_count}
                     </span>{' '}
                     {profile.follower_count === 1 ? 'follower' : 'followers'}
-                  </span>
-                  <span>
+                  </button>
+                  <button
+                    onClick={() => setListKind('following')}
+                    className="rounded-control transition hover:underline active:opacity-70"
+                  >
                     <span className="font-semibold">
                       {profile.following_count}
                     </span>{' '}
                     following
-                  </span>
+                  </button>
                 </div>
 
                 {/* No follow button on your own profile. The backend also
@@ -284,6 +342,34 @@ export default function Profile() {
             )}
           </>
         )}
+        {/* The modal sits at the end of the page rather than next to the
+            counts that open it. It is position:fixed, so where it appears on
+            screen has nothing to do with where it is written -- and keeping it
+            out of the profile card avoids inheriting that card's padding and
+            overflow rules. */}
+        <Modal
+          open={listKind !== null}
+          onClose={() => setListKind(null)}
+          title={listKind === 'followers' ? 'Followers' : 'Following'}
+        >
+          <UserList
+            people={listPeople}
+            loading={listLoading}
+            error={listError}
+            emptyIcon={Users}
+            emptyTitle={
+              listKind === 'followers' ? 'No followers yet' : 'Not following anyone'
+            }
+            emptyMessage={
+              listKind === 'followers'
+                ? `Nobody follows ${profile?.username} yet.`
+                : `${profile?.username} is not following anyone yet.`
+            }
+            // Close as you navigate. Without this the dialog stays open on top
+            // of the profile you just asked to see.
+            onNavigate={() => setListKind(null)}
+          />
+        </Modal>
       </main>
 
       <BottomNav />

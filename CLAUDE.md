@@ -1,9 +1,10 @@
 # How to work with me
 
-**Current work: Phase 11c — The details that make it feel real. Not started.**
-(11a and 11b done, tested live on a phone. Design system: `frontend/src/index.css`.
-Shared pieces: `frontend/src/components/ui/`. The modal was deferred from 11b to
-11c, where the follower list will actually need one.)
+**Current work: Phase 11c-ii — works locally, pushed. Waiting on the live check.**
+(11a, 11b and 11c-i done and tested live. Design system: `frontend/src/index.css`.
+Shared pieces: `frontend/src/components/ui/`. After the live check, the side-by-side
+comparison against real Instagram ends Phase 11 — then Phase 12, photos and uploads,
+where Alembic starts.)
 (Keep this line up to date. It is the first thing to read at the start of a session.)
 
 ## My situation

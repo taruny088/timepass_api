@@ -7,7 +7,7 @@ auth.py serves you your own details, this file serves other people's, and the
 two are allowed to show different things.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -16,7 +16,7 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models import Follow, Post, User
 from app.post_view import build_post_list
-from app.schemas import PostOut, UserProfile
+from app.schemas import PostOut, UserProfile, UserSummary
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -227,3 +227,99 @@ def unfollow_user(
         db.commit()
 
     return None
+
+
+# How many people one request may return.
+#
+# No "load more" here, unlike the feed. Adding paging to a list that is
+# currently a handful of names would be machinery serving nobody, and your
+# rules say not to build a layer until it is needed. The cap is what stops a
+# popular account one day returning ten thousand rows in one go.
+#
+# Phase 15 will come back to both endpoints below: once accounts can be
+# private, who is allowed to SEE a follower list becomes a real question.
+# Today every account is public, so there is nothing to check yet.
+FOLLOW_LIST_LIMIT = 50
+
+
+@router.get(
+    "/{username}/followers",
+    response_model=list[UserSummary],
+    summary="The people who follow this user",
+)
+def read_followers(
+    username: str,
+    limit: int = Query(default=FOLLOW_LIST_LIMIT, ge=1, le=FOLLOW_LIST_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[User]:
+    """Return the users who follow this one.
+
+    THE DIRECTION IS THE WHOLE THING, so read it slowly.
+
+    A row in follows means "follower_id follows following_id". This endpoint
+    asks "who follows THIS person", so this person is the one BEING followed:
+
+        Follow.following_id == user.id      <- pin down the person we are
+                                               looking at
+        User.id == Follow.follower_id       <- and fetch the OTHER end
+
+    read_following below is the same query with those two swapped, and getting
+    them the wrong way round is the classic bug in this part of the app. It
+    fails quietly, too: both versions return a plausible list of people, so
+    nothing looks broken until you notice the names are wrong.
+
+    UserSummary has no email field, which matters here as much as it does in
+    search: a follower list is shown to anyone who opens the profile.
+    """
+    user = get_user_by_username(db, username)
+
+    return list(
+        db.scalars(
+            select(User)
+            # A JOIN reads two tables as one. Here: line up every follows row
+            # against the user sitting at its follower_id end, so we get people
+            # rather than a list of numbers.
+            .join(Follow, Follow.follower_id == User.id)
+            .where(Follow.following_id == user.id)
+            # Newest follower first, matching what Instagram shows.
+            .order_by(Follow.created_at.desc())
+            .limit(limit)
+        )
+    )
+
+
+@router.get(
+    "/{username}/following",
+    response_model=list[UserSummary],
+    summary="The people this user follows",
+)
+def read_following(
+    username: str,
+    limit: int = Query(default=FOLLOW_LIST_LIMIT, ge=1, le=FOLLOW_LIST_LIMIT),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[User]:
+    """Return the users this one follows.
+
+    The mirror image of read_followers. This person is the one DOING the
+    following, so the two conditions swap ends:
+
+        Follow.follower_id == user.id       <- pin down the person we are
+                                               looking at
+        User.id == Follow.following_id      <- and fetch the OTHER end
+
+    Same table, opposite direction. That is why the Follow model calls itself
+    the trickiest table in the project.
+    """
+    user = get_user_by_username(db, username)
+
+    return list(
+        db.scalars(
+            select(User)
+            .join(Follow, Follow.following_id == User.id)
+            .where(Follow.follower_id == user.id)
+            .order_by(Follow.created_at.desc())
+            .limit(limit)
+        )
+    )

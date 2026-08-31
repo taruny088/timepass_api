@@ -1,14 +1,11 @@
 import { SearchX } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import api from '../api/client'
 import BottomNav from '../components/BottomNav'
 import Header from '../components/Header'
-import Avatar from '../components/ui/Avatar'
 import Card from '../components/ui/Card'
-import EmptyState from '../components/ui/EmptyState'
 import Input from '../components/ui/Input'
-import Spinner from '../components/ui/Spinner'
+import UserList from '../components/ui/UserList'
 
 // How long to wait after the last keystroke before asking the server.
 // 300ms is long enough to skip the letters of a word being typed, and short
@@ -111,51 +108,20 @@ export default function Search() {
             </p>
           )}
 
-          {loading && <Spinner label="Searching" />}
-
-          {error && (
-            <p className="rounded-control bg-danger-soft px-3 py-2 text-small text-danger">
-              {error}
-            </p>
-          )}
-
-          {/* Nothing found. Repeating what was searched for makes it clear
-              the search ran and genuinely found nothing, rather than looking
-              like it silently failed. */}
-          {!loading && !error && searchedFor && results.length === 0 && (
-            <EmptyState
-              icon={SearchX}
-              title="No one found"
-              message={`Nothing matched “${searchedFor}”. Try a different spelling, or part of a name.`}
-            />
-          )}
-
-          {results.length > 0 && (
-            <Card as="ul" className="divide-y divide-line overflow-hidden">
-              {results.map((person) => (
-                <li key={person.id}>
-                  <Link
-                    to={`/profile/${person.username}`}
-                    className="flex items-center gap-3 px-4 py-3 transition active:bg-hover hover:bg-hover"
-                  >
-                    <Avatar
-                      src={person.avatar_url}
-                      username={person.username}
-                      size="md"
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate text-strong font-semibold text-ink">
-                        {person.username}
-                      </p>
-                      {person.full_name && (
-                        <p className="truncate text-small text-ink-muted">
-                          {person.full_name}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              ))}
+          {/* UserList owns the loading, error and empty states as well as the
+              rows, because the followers and following lists need exactly the
+              same three. The WORDS still come from here -- "No one found for
+              'xyz'" is this page's sentence, not a shared one. */}
+          {(loading || error || searchedFor) && (
+            <Card className="overflow-hidden">
+              <UserList
+                people={results}
+                loading={loading}
+                error={error}
+                emptyIcon={SearchX}
+                emptyTitle="No one found"
+                emptyMessage={`Nothing matched “${searchedFor}”. Try a different spelling, or part of a name.`}
+              />
             </Card>
           )}
         </div>
