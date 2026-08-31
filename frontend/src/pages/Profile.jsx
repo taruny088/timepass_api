@@ -111,17 +111,17 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface">
       <Header />
 
       <main className="mx-auto max-w-3xl px-4 py-8">
         {/* STATE 1: loading */}
-        {loading && <p className="text-center text-slate-500">Loading...</p>}
+        {loading && <p className="text-center text-ink-muted">Loading...</p>}
 
         {/* STATE 2: something went wrong */}
         {!loading && error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-            <p className="text-red-700">{error}</p>
+          <div className="rounded-xl border border-danger-line bg-danger-soft p-6 text-center">
+            <p className="text-danger">{error}</p>
             <Link to="/" className="mt-3 inline-block text-sm underline">
               Go home
             </Link>
@@ -130,7 +130,7 @@ export default function Profile() {
 
         {!loading && !error && profile && (
           <>
-            <section className="flex items-center gap-5 rounded-xl border border-slate-200 bg-white p-6">
+            <section className="flex items-center gap-5 rounded-xl border border-line bg-surface p-6">
               {/* Show the avatar if there is one, otherwise a circle with the
                   first letter. {a ? b : c} is "this or that", as opposed to
                   {a && b} which is "show or nothing". */}
@@ -141,20 +141,20 @@ export default function Profile() {
                   className="h-20 w-20 rounded-full object-cover"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-300 text-2xl font-bold text-white">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-avatar text-2xl font-bold text-on-accent">
                   {profile.username[0].toUpperCase()}
                 </div>
               )}
 
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">
+                <h1 className="text-2xl font-bold text-ink">
                   {profile.username}
                 </h1>
                 {profile.full_name && (
-                  <p className="text-slate-600">{profile.full_name}</p>
+                  <p className="text-ink-muted">{profile.full_name}</p>
                 )}
                 {profile.bio && (
-                  <p className="mt-1 text-sm text-slate-500">{profile.bio}</p>
+                  <p className="mt-1 text-sm text-ink-muted">{profile.bio}</p>
                 )}
                 {/* The three counts. All computed by the backend when
                     asked, never stored, so they cannot drift out of step
@@ -166,7 +166,7 @@ export default function Profile() {
                     Those two come from the same table read from opposite
                     directions, and mixing them up is the classic bug in
                     this part of the app. */}
-                <div className="mt-2 flex gap-4 text-sm text-slate-700">
+                <div className="mt-2 flex gap-4 text-sm text-ink">
                   <span>
                     <span className="font-semibold">{profile.post_count}</span>{' '}
                     {profile.post_count === 1 ? 'post' : 'posts'}
@@ -204,7 +204,7 @@ export default function Profile() {
             {/* STATE 3: the person exists but has nothing yet. A clear
                 message, not a blank space that looks broken. */}
             {posts.length === 0 ? (
-              <p className="mt-8 text-center text-slate-500">
+              <p className="mt-8 text-center text-ink-muted">
                 {isMe
                   ? 'You have not posted anything yet.'
                   : `${profile.username} has not posted anything yet.`}
@@ -231,7 +231,7 @@ export default function Profile() {
                       <button
                         onClick={() => handleDelete(post.id)}
                         title="Delete post"
-                        className="absolute right-1 top-1 rounded bg-white/90 px-2 py-1 text-xs font-medium text-red-600 opacity-0 transition group-hover:opacity-100"
+                        className="absolute right-1 top-1 rounded bg-surface/90 px-2 py-1 text-xs font-medium text-danger opacity-0 transition group-hover:opacity-100"
                       >
                         Delete
                       </button>

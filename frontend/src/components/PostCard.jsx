@@ -36,7 +36,7 @@ export default function PostCard({
   const isMine = me?.id === post.author.id
 
   return (
-    <article className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <article className="overflow-hidden rounded-xl border border-line bg-surface">
       <div className="flex items-center justify-between px-4 py-3">
         <Link
           to={`/profile/${post.author.username}`}
@@ -49,11 +49,11 @@ export default function PostCard({
               className="h-9 w-9 rounded-full object-cover"
             />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-300 text-sm font-bold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-avatar text-sm font-bold text-on-accent">
               {post.author.username[0].toUpperCase()}
             </div>
           )}
-          <span className="font-medium text-slate-900 hover:underline">
+          <span className="font-medium text-ink hover:underline">
             {post.author.username}
           </span>
         </Link>
@@ -62,7 +62,7 @@ export default function PostCard({
         {isMine && onDelete && (
           <button
             onClick={() => onDelete(post.id)}
-            className="text-sm font-medium text-red-600 hover:underline"
+            className="text-sm font-medium text-danger hover:underline"
           >
             Delete
           </button>
@@ -73,7 +73,7 @@ export default function PostCard({
         <PostImage
           src={post.image_url}
           alt={post.caption || 'post'}
-          className="min-h-48 w-full bg-slate-100 object-cover"
+          className="min-h-48 w-full bg-hover object-cover"
         />
       </Link>
 
@@ -83,7 +83,7 @@ export default function PostCard({
         <LikeButton post={post} />
 
         {post.caption && (
-          <p className="mt-2 whitespace-pre-wrap text-slate-800">
+          <p className="mt-2 whitespace-pre-wrap text-ink">
             {post.caption}
           </p>
         )}
@@ -94,7 +94,7 @@ export default function PostCard({
         {showCommentsLink && (
           <Link
             to={`/post/${post.id}`}
-            className="mt-1 block text-sm text-slate-500 hover:underline"
+            className="mt-1 block text-sm text-ink-muted hover:underline"
           >
             {post.comment_count === 0
               ? 'Add a comment'
@@ -105,7 +105,7 @@ export default function PostCard({
         )}
         {/* Stored as UTC, shown in the reader's own local time -- the rule
             set back in Phase 2 when created_at was given a timezone. */}
-        <p className="mt-2 text-xs text-slate-400">
+        <p className="mt-2 text-xs text-ink-muted">
           {new Date(post.created_at).toLocaleString()}
         </p>
       </div>

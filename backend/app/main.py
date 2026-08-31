@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app import auth, comments, feed, likes, posts, search, users
 from app.database import get_db
 
-app = FastAPI(title="Insta Clone API")
+app = FastAPI(title="Timepass API")
 
 # Where the website is allowed to call us from.
 #

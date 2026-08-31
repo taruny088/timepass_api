@@ -11,19 +11,19 @@ import { Link } from 'react-router-dom'
 // explaining what happened, not a silent failure."
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md text-center">
-        <p className="text-5xl font-bold text-slate-300">404</p>
-        <h1 className="mt-2 text-xl font-bold text-slate-900">
+        <p className="text-5xl font-bold text-line">404</p>
+        <h1 className="mt-2 text-xl font-bold text-ink">
           Page not found
         </h1>
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-ink-muted">
           That address does not exist. It may have been a typo, or the page
           may have been deleted.
         </p>
         <Link
           to="/"
-          className="mt-5 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+          className="mt-5 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent transition hover:bg-accent-hover"
         >
           Go home
         </Link>

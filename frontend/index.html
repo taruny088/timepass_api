@@ -4,7 +4,70 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Insta Clone</title>
+    <title>Timepass</title>
+
+    <!--
+      THE TYPEFACES, loaded from Google Fonts. Both are free.
+
+      Inter for the whole interface, in two weights: 400 for reading and 600 for
+      usernames and headings. Outfit in 600 only, for the word "Timepass" on the
+      login and signup pages.
+
+      Only the weights actually used are asked for. Every extra weight is another
+      file the browser downloads before anything appears.
+
+      The two preconnect lines are a small speed trick. A font takes two trips:
+      one to fonts.googleapis.com for the stylesheet, then another to
+      fonts.gstatic.com for the font file itself, and the browser only discovers
+      the second trip once the first has finished. preconnect tells it to start
+      opening both connections immediately, in parallel, before it knows it needs
+      them. crossorigin is required on the second one because font files are
+      fetched under stricter rules than stylesheets.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!--
+      THE FLASH OF THE WRONG THEME, and why this script exists.
+
+      Our React code decides light or dark. But React cannot run until its
+      JavaScript has downloaded and started, and the browser draws the page
+      before that happens. So someone who chose dark mode gets a white page for
+      a fraction of a second first, then a lurch to black. On a phone at night
+      it is genuinely unpleasant, and it looks broken.
+
+      This script runs here, in the <head>, before the browser has drawn a single
+      pixel. It reads the same saved choice ThemeContext reads and puts the dark
+      class on <html> straight away, so the very first paint is already correct.
+      ThemeContext then takes over and agrees with what is already there.
+
+      It is written in plain JavaScript rather than imported, because an import
+      would put us back to waiting for a download -- which is the exact problem.
+
+      The one cost: this logic is deliberately duplicated from getInitialTheme in
+      ThemeContext.jsx. If the rule for choosing a theme ever changes, both have
+      to change together.
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('timepass-theme')
+          var dark =
+            saved === 'dark' ||
+            (saved !== 'light' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) {
+            document.documentElement.classList.add('dark')
+          }
+        } catch (e) {
+          // Storage blocked. Start light; nothing else breaks.
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

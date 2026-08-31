@@ -93,15 +93,15 @@ export default function CommentList({ post, onCountChange }) {
   }
 
   return (
-    <section className="border-t border-slate-100 px-4 py-3">
-      <h2 className="mb-2 text-sm font-semibold text-slate-900">
+    <section className="border-t border-line px-4 py-3">
+      <h2 className="mb-2 text-sm font-semibold text-ink">
         {comments.length === 1 ? '1 comment' : `${comments.length} comments`}
       </h2>
 
-      {loading && <p className="text-sm text-slate-500">Loading comments...</p>}
+      {loading && <p className="text-sm text-ink-muted">Loading comments...</p>}
 
       {error && (
-        <p className="mb-2 rounded bg-red-50 px-2 py-1 text-sm text-red-700">
+        <p className="mb-2 rounded bg-danger-soft px-2 py-1 text-sm text-danger">
           {error}
         </p>
       )}
@@ -109,7 +109,7 @@ export default function CommentList({ post, onCountChange }) {
       {/* The empty state: a clear sentence, not a blank gap that looks
           like something failed to load. */}
       {!loading && comments.length === 0 && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-ink-muted">
           No comments yet. Be the first.
         </p>
       )}
@@ -121,14 +121,14 @@ export default function CommentList({ post, onCountChange }) {
               <div className="min-w-0 flex-1 text-sm">
                 <Link
                   to={`/profile/${comment.author.username}`}
-                  className="font-semibold text-slate-900 hover:underline"
+                  className="font-semibold text-ink hover:underline"
                 >
                   {comment.author.username}
                 </Link>{' '}
-                <span className="whitespace-pre-wrap text-slate-700">
+                <span className="whitespace-pre-wrap text-ink">
                   {comment.body}
                 </span>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-ink-muted">
                   {new Date(comment.created_at).toLocaleString()}
                 </p>
               </div>
@@ -136,7 +136,7 @@ export default function CommentList({ post, onCountChange }) {
               {canDelete(comment) && (
                 <button
                   onClick={() => handleDelete(comment.id)}
-                  className="shrink-0 text-xs font-medium text-red-600 opacity-0 transition group-hover:opacity-100"
+                  className="shrink-0 text-xs font-medium text-danger opacity-0 transition group-hover:opacity-100"
                 >
                   Delete
                 </button>
@@ -153,14 +153,14 @@ export default function CommentList({ post, onCountChange }) {
           onChange={(e) => setBody(e.target.value)}
           maxLength={2200}
           placeholder="Add a comment..."
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-slate-900"
+          className="flex-1 rounded-lg border border-line px-3 py-1.5 text-sm outline-none focus:border-ink"
         />
         <button
           type="submit"
           // Disabled while empty, so the button cannot be pressed for a
           // comment that would be rejected anyway.
           disabled={submitting || !body.trim()}
-          className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-accent-soft"
         >
           {submitting ? '...' : 'Post'}
         </button>

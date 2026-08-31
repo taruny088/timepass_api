@@ -79,11 +79,11 @@ export default function Search() {
   }, [query])
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface">
       <Header />
 
       <main className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="mb-4 text-2xl font-bold text-slate-900">Find people</h1>
+        <h1 className="mb-4 text-2xl font-bold text-ink">Find people</h1>
 
         <input
           type="text"
@@ -92,23 +92,23 @@ export default function Search() {
           maxLength={50}
           autoFocus
           placeholder="Search by username or name"
-          className="w-full rounded-lg border border-slate-300 px-4 py-2 outline-none focus:border-slate-900"
+          className="w-full rounded-lg border border-line px-4 py-2 outline-none focus:border-ink"
         />
 
         <div className="mt-4">
           {/* Nothing typed yet: a prompt, so the empty space is explained. */}
           {!query.trim() && (
-            <p className="text-center text-sm text-slate-500">
+            <p className="text-center text-sm text-ink-muted">
               Type a name to search.
             </p>
           )}
 
           {loading && (
-            <p className="text-center text-sm text-slate-500">Searching...</p>
+            <p className="text-center text-sm text-ink-muted">Searching...</p>
           )}
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
               {error}
             </p>
           )}
@@ -117,18 +117,18 @@ export default function Search() {
               the search ran and genuinely found nothing, rather than looking
               like it silently failed. */}
           {!loading && !error && searchedFor && results.length === 0 && (
-            <p className="text-center text-sm text-slate-500">
+            <p className="text-center text-sm text-ink-muted">
               No one found for &ldquo;{searchedFor}&rdquo;.
             </p>
           )}
 
           {results.length > 0 && (
-            <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
               {results.map((person) => (
                 <li key={person.id}>
                   <Link
                     to={`/profile/${person.username}`}
-                    className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50"
+                    className="flex items-center gap-3 px-4 py-3 transition hover:bg-hover"
                   >
                     {person.avatar_url ? (
                       <img
@@ -137,16 +137,16 @@ export default function Search() {
                         className="h-10 w-10 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-300 font-bold text-white">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-avatar font-bold text-on-accent">
                         {person.username[0].toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-900">
+                      <p className="truncate font-medium text-ink">
                         {person.username}
                       </p>
                       {person.full_name && (
-                        <p className="truncate text-sm text-slate-500">
+                        <p className="truncate text-sm text-ink-muted">
                           {person.full_name}
                         </p>
                       )}

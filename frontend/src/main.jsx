@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { AuthProvider } from './auth/AuthContext.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { ThemeProvider } from './theme/ThemeContext.jsx'
 import './index.css'
 
 // The entry point. This is the first of our code that runs in the browser.
@@ -18,6 +19,11 @@ import './index.css'
 //   ErrorBoundary catches a crash anywhere inside and shows a message
 //                 instead of a blank white page. Outermost of our own
 //                 components, so nothing escapes it.
+//
+//   ThemeProvider supplies light or dark to everything inside it, and puts the
+//                 matching class on <html>. It sits outside BrowserRouter
+//                 because the theme has nothing to do with which page you are
+//                 on -- it is the same on every route.
 //
 //   StrictMode    development-only checks that warn about risky patterns.
 //                 It deliberately runs some code twice to expose bugs, so do
@@ -35,11 +41,13 @@ import './index.css'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

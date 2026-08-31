@@ -66,15 +66,15 @@ export default function PostDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface">
       <Header />
 
       <main className="mx-auto max-w-lg px-4 py-8">
-        {loading && <p className="text-center text-slate-500">Loading...</p>}
+        {loading && <p className="text-center text-ink-muted">Loading...</p>}
 
         {!loading && error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-            <p className="text-red-700">{error}</p>
+          <div className="rounded-xl border border-danger-line bg-danger-soft p-6 text-center">
+            <p className="text-danger">{error}</p>
             <Link to="/" className="mt-3 inline-block text-sm underline">
               Go home
             </Link>
@@ -85,7 +85,7 @@ export default function PostDetail() {
             still only shows on your own posts, which PostCard decides. The
             feed does not pass it, so no delete buttons appear there. */}
         {!loading && !error && post && (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-hidden rounded-xl border border-line bg-surface">
             {/* showCommentsLink is off here: this page draws the actual
                 comments below, so a link to itself would be pointless. */}
             <PostCard

@@ -1,5 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import Logo from './Logo'
+import ThemeToggle from './ThemeToggle'
 
 // The bar across the top of every logged-in page.
 //
@@ -17,10 +19,15 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+    <header className="sticky top-0 z-10 border-b border-line bg-surface">
       <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-        <Link to="/" className="text-xl font-bold text-slate-900">
-          Insta Clone
+        {/* The symbol, and no name beside it.
+            Instagram does the same, and it is not decoration: dropping the
+            word buys back the width a phone screen does not have. The symbol
+            still has to say the app's name to a screen reader, which is what
+            the aria-label inside Logo is for. */}
+        <Link to="/">
+          <Logo className="h-8 w-8" />
         </Link>
 
         <nav className="flex items-center gap-2">
@@ -28,21 +35,21 @@ export default function Header() {
               button to everyone. An explicit link costs nothing. */}
           <Link
             to="/"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-hover"
           >
             Home
           </Link>
 
           <Link
             to="/search"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-hover"
           >
             Search
           </Link>
 
           <Link
             to="/create"
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700"
+            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent transition hover:bg-accent-hover"
           >
             New post
           </Link>
@@ -52,14 +59,16 @@ export default function Header() {
               one page, different data, decided by the name in the URL. */}
           <Link
             to={`/profile/${user.username}`}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-hover"
           >
             My profile
           </Link>
 
+          <ThemeToggle />
+
           <button
             onClick={handleLogout}
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-ink-muted transition hover:bg-hover hover:text-ink"
           >
             Log out
           </button>

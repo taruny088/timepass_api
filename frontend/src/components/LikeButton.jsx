@@ -79,12 +79,12 @@ export default function LikeButton({ post }) {
         {liked ? '❤️' : '🤍'}
       </button>
 
-      <span className="text-sm font-medium text-slate-700">
+      <span className="text-sm font-medium text-ink">
         {count} {count === 1 ? 'like' : 'likes'}
       </span>
 
       {failed && (
-        <span className="text-xs text-red-600">could not save</span>
+        <span className="text-xs text-danger">could not save</span>
       )}
     </div>
   )

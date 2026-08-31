@@ -1,4 +1,4 @@
-# Insta Clone
+# Timepass
 
 A working Instagram-style app, built from scratch: PostgreSQL, a FastAPI
 backend, and a React website. Everything a click does reaches the database and

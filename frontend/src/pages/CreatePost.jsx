@@ -53,20 +53,20 @@ export default function CreatePost() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface">
       <Header />
 
       <main className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="mb-4 text-2xl font-bold text-slate-900">New post</h1>
+        <h1 className="mb-4 text-2xl font-bold text-ink">New post</h1>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-slate-200 bg-white p-6"
+          className="space-y-4 rounded-xl border border-line bg-surface p-6"
         >
           {error && (
             <p
               role="alert"
-              className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger"
             >
               {error}
             </p>
@@ -75,7 +75,7 @@ export default function CreatePost() {
           <div>
             <label
               htmlFor="imageUrl"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-ink"
             >
               Image link
             </label>
@@ -89,10 +89,10 @@ export default function CreatePost() {
               }}
               required
               maxLength={500}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="https://picsum.photos/600"
             />
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-ink-muted">
               Paste a link to an image. Try https://picsum.photos/600
             </p>
           </div>
@@ -100,9 +100,9 @@ export default function CreatePost() {
           {/* The preview. onError fires when the browser cannot load the
               image, which is how we catch a wrong link before saving it. */}
           {showPreview && (
-            <div className="overflow-hidden rounded-lg border border-slate-200">
+            <div className="overflow-hidden rounded-lg border border-line">
               {imageBroken ? (
-                <p className="bg-amber-50 px-3 py-6 text-center text-sm text-amber-700">
+                <p className="bg-warn-soft px-3 py-6 text-center text-sm text-warn">
                   That link did not load as an image. You can still post it,
                   but it will show as a broken picture.
                 </p>
@@ -120,10 +120,10 @@ export default function CreatePost() {
           <div>
             <label
               htmlFor="caption"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-ink"
             >
               Caption{' '}
-              <span className="font-normal text-slate-400">(optional)</span>
+              <span className="font-normal text-ink-muted">(optional)</span>
             </label>
             <textarea
               id="caption"
@@ -131,10 +131,10 @@ export default function CreatePost() {
               onChange={(e) => setCaption(e.target.value)}
               maxLength={2200}
               rows={3}
-              className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+              className="w-full resize-none rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="Say something about it"
             />
-            <p className="mt-1 text-right text-xs text-slate-400">
+            <p className="mt-1 text-right text-xs text-ink-muted">
               {caption.length} / 2200
             </p>
           </div>
@@ -142,7 +142,7 @@ export default function CreatePost() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-slate-900 py-2 font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="w-full rounded-lg bg-accent py-2 font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-accent-soft"
           >
             {submitting ? 'Posting...' : 'Post'}
           </button>

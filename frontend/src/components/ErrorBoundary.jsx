@@ -51,12 +51,12 @@ export default class ErrorBoundary extends Component {
     }
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-        <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 text-center">
-          <h1 className="text-xl font-bold text-slate-900">
+      <div className="flex min-h-screen items-center justify-center bg-surface px-4">
+        <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 text-center">
+          <h1 className="text-xl font-bold text-ink">
             Something went wrong
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-ink-muted">
             The page could not be displayed. This is a problem in the app, not
             something you did.
           </p>
@@ -64,13 +64,13 @@ export default class ErrorBoundary extends Component {
           {/* The technical detail, shown small rather than hidden. If you are
               debugging your own app, having the message on screen saves
               opening devtools. */}
-          <p className="mt-4 break-words rounded-lg bg-slate-100 px-3 py-2 text-left font-mono text-xs text-slate-600">
+          <p className="mt-4 break-words rounded-lg bg-hover px-3 py-2 text-left font-mono text-xs text-ink-muted">
             {this.state.message}
           </p>
 
           <button
             onClick={this.handleReload}
-            className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+            className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent transition hover:bg-accent-hover"
           >
             Go back home
           </button>

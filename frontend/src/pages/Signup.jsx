@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import Logo from '../components/Logo'
 
 // Almost identical to Login, on purpose. This is the pattern PLAN.md predicted:
 // once login works end to end, every later feature is a smaller version of the
@@ -54,23 +55,29 @@ export default function Signup() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-8">
       <div className="w-full max-w-sm">
-        <h1 className="mb-1 text-center text-3xl font-bold text-slate-900">
-          Insta Clone
-        </h1>
-        <p className="mb-6 text-center text-sm text-slate-500">
+        {/* Same block as Login. The two auth screens are the only place the
+            name is spelled out, so they should introduce the app identically.
+            In 11b these become one shared piece rather than two copies. */}
+        <div className="mb-4 flex flex-col items-center gap-2">
+          <Logo className="h-12 w-12" />
+          <h1 className="font-display text-h1 font-semibold text-ink">
+            Timepass
+          </h1>
+        </div>
+        <p className="mb-6 text-center text-small text-ink-muted">
           Create an account
         </p>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+          className="space-y-4 rounded-xl border border-line bg-surface p-6"
         >
           {error && (
             <p
               role="alert"
-              className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger"
             >
               {error}
             </p>
@@ -79,7 +86,7 @@ export default function Signup() {
           <div>
             <label
               htmlFor="username"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-ink"
             >
               Username
             </label>
@@ -99,10 +106,10 @@ export default function Signup() {
               pattern="[A-Za-z0-9_]+"
               title="Letters, numbers and underscores only"
               autoComplete="username"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="john_23"
             />
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-ink-muted">
               Letters, numbers and underscores only.
             </p>
           </div>
@@ -110,7 +117,7 @@ export default function Signup() {
           <div>
             <label
               htmlFor="email"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-ink"
             >
               Email
             </label>
@@ -121,7 +128,7 @@ export default function Signup() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="you@example.com"
             />
           </div>
@@ -129,10 +136,10 @@ export default function Signup() {
           <div>
             <label
               htmlFor="fullName"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-ink"
             >
               Full name{' '}
-              <span className="font-normal text-slate-400">(optional)</span>
+              <span className="font-normal text-ink-muted">(optional)</span>
             </label>
             <input
               id="fullName"
@@ -141,7 +148,7 @@ export default function Signup() {
               onChange={(e) => setFullName(e.target.value)}
               maxLength={100}
               autoComplete="name"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="John Smith"
             />
           </div>
@@ -149,7 +156,7 @@ export default function Signup() {
           <div>
             <label
               htmlFor="password"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-ink"
             >
               Password
             </label>
@@ -161,7 +168,7 @@ export default function Signup() {
               required
               minLength={8}
               autoComplete="new-password"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="At least 8 characters"
             />
           </div>
@@ -169,15 +176,15 @@ export default function Signup() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-slate-900 py-2 font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="w-full rounded-lg bg-accent py-2 font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-accent-soft"
           >
             {submitting ? 'Creating account...' : 'Sign up'}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-slate-600">
+        <p className="mt-4 text-center text-sm text-ink-muted">
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-slate-900 underline">
+          <Link to="/login" className="font-medium text-ink underline">
             Log in
           </Link>
         </p>

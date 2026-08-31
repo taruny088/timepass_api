@@ -18,9 +18,9 @@ export default function PostImage({ src, alt, className = '' }) {
   if (broken) {
     return (
       <div
-        className={`flex items-center justify-center bg-slate-100 text-center ${className}`}
+        className={`flex items-center justify-center bg-hover text-center ${className}`}
       >
-        <span className="px-2 text-xs text-slate-400">Image unavailable</span>
+        <span className="px-2 text-xs text-ink-muted">Image unavailable</span>
       </div>
     )
   }

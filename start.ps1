@@ -23,7 +23,7 @@ function Fail($message, $fix) {
 }
 
 Write-Host ""
-Write-Host "Insta Clone" -ForegroundColor Cyan
+Write-Host "Timepass" -ForegroundColor Cyan
 Write-Host ""
 
 # --- 1. the Python virtual environment ------------------------------------

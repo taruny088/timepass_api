@@ -1,17 +1,295 @@
-/* This single line pulls in the whole of Tailwind.
+/* ============================================================================
+ * THE DESIGN SYSTEM
  *
- * Tailwind gives you small single-purpose class names to put directly on an
- * element, instead of writing separate CSS. For example:
+ * This is the one file that decides what Timepass looks like. Every colour,
+ * typeface, text size and corner radius in the whole app is named here and
+ * nowhere else.
  *
- *     <div class="flex gap-4 p-6 rounded-lg bg-white">
- *              |     |    |      |         |
- *              |     |    |      |         white background
- *              |     |    |      rounded corners
+ * WHY ONE FILE. Before this, a colour like "slate-200" was typed straight into
+ * a component. Change the border colour of the app and you edit 22 files and
+ * miss three. Worse, "slate-200" can only ever mean one exact grey -- so dark
+ * mode was impossible without rewriting every component.
+ *
+ * A DESIGN TOKEN is a name for a decision. A component says "border-line", not
+ * "#DBDBDB". This file decides what "line" currently means. Switch to dark mode
+ * and the answer changes -- and not one component is touched.
+ *
+ * The test: if you can find a colour code (#RRGGBB) anywhere outside this file,
+ * something went wrong.
+ * ========================================================================= */
+
+/* Pulls in the whole of Tailwind. Tailwind gives small single-purpose class
+ * names you put directly on an element instead of writing separate CSS:
+ *
+ *     <div class="flex gap-4 p-6 rounded-card bg-surface">
+ *              |     |    |      |            |
+ *              |     |    |      |            our background token
+ *              |     |    |      our card corner token
  *              |     |    padding inside
  *              |     space between children
  *              lay the children out in a row
  *
- * The tailwindcss() plugin in vite.config.js reads the class names you have
- * actually used and generates only the CSS for those. Nothing unused ships.
- */
+ * The tailwindcss() plugin in vite.config.js reads the class names actually
+ * used and generates only the CSS for those. Nothing unused ships.
+ *
+ * Note there is no tailwind.config.js in this project. Tailwind version 4
+ * configures itself in CSS -- which is exactly why "one configuration file"
+ * works so naturally here. */
 @import "tailwindcss";
+
+/* ----------------------------------------------------------------------------
+ * HOW DARK MODE IS SWITCHED ON
+ *
+ * Out of the box, Tailwind's "dark:" prefix follows the operating system: if
+ * the phone is set to dark, the app is dark, and the user has no say.
+ *
+ * We want a button in our app to decide instead. This line redefines "dark:" to
+ * mean "somewhere above me there is an element carrying the class 'dark'".
+ * ThemeContext.jsx is what puts that class on the <html> element and takes it
+ * off again.
+ *
+ * The :where() around it is a trick to keep the rule's priority low, so a dark:
+ * class never wins an argument just by being more specific than a normal class.
+ * ------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ----------------------------------------------------------------------------
+ * THE COLOURS -- LIGHT
+ *
+ * :root means "the whole document". These are plain CSS variables: a name
+ * holding a value, readable from anywhere on the page.
+ *
+ * Worth knowing why these particular greys. Instagram's interface is almost
+ * entirely grey and white. Their famous gradient appears in exactly two places
+ * -- the logo, and the ring around a profile picture with an unseen story.
+ * Everything else is this neutral scale. So the neutrals are what actually
+ * create the familiar feel, and greys belong to nobody. These are taken
+ * directly from Instagram and used as they are.
+ *
+ * Notice the main text is #262626, not pure black. Softened black is easier to
+ * read for long stretches. That is deliberate on their part and worth copying.
+ * ------------------------------------------------------------------------- */
+:root {
+  /* Surfaces -- what sits behind everything */
+  --surface:        #FFFFFF;  /* the page itself */
+  --surface-muted:  #FAFAFA;  /* panels that should sit back a little */
+  --hover:          #EFEFEF;  /* the wash under the pointer on a button */
+
+  /* Text */
+  --ink:            #262626;  /* headings, body, anything you must read */
+  --ink-muted:      #8E8E8E;  /* timestamps, counts, hints, placeholders */
+
+  /* Structure */
+  --line:           #DBDBDB;  /* borders, dividers, input outlines */
+
+  /* The one blue. Buttons, links, anything you can act on. */
+  --accent:         #0095F6;
+  --accent-hover:   #1877F2;
+  --accent-soft:    #B2DFFC;  /* a button that is disabled and cannot be used */
+  --on-accent:      #FFFFFF;  /* text sitting on top of the blue */
+
+  /* The one red. The heart, and errors -- the same colour on purpose. */
+  --heart:          #ED4956;
+  --danger:         #ED4956;
+  --danger-soft:    #FFF0F1;  /* the tint behind an error message */
+  --danger-line:    #FACDD1;
+
+  /* Amber, used in one place: the note above the image preview when you are
+     creating a post. */
+  --warn:           #92650E;
+  --warn-soft:      #FFF8E6;
+
+  /* The circle standing in for a profile picture nobody has uploaded yet.
+     Dark enough that white initials on top of it are actually readable. */
+  --avatar:         #737373;
+
+  /* Tells the browser which way round we are, so the parts of the page we do
+     not draw ourselves follow along: scrollbars, and the insides of native
+     controls. Forget this and you get a white scrollbar glaring out of the
+     side of a black page. */
+  color-scheme: light;
+}
+
+/* ----------------------------------------------------------------------------
+ * THE COLOURS -- DARK
+ *
+ * The same names, different answers. This block lists only what changes, so
+ * anything not mentioned keeps its light value. --accent is not repeated
+ * because the blue is the same blue in both themes.
+ *
+ * The background is true black, not dark grey. On a phone's OLED screen a true
+ * black pixel is simply switched off, which makes photos appear to glow off the
+ * page. In a photo app that is the entire point.
+ * ------------------------------------------------------------------------- */
+.dark {
+  --surface:        #000000;
+  --surface-muted:  #121212;
+  --hover:          #1A1A1A;
+
+  --ink:            #F5F5F5;
+  --ink-muted:      #A8A8A8;
+
+  --line:           #262626;
+
+  --accent-soft:    #0B3D5C;
+
+  --danger-soft:    #2A1416;
+  --danger-line:    #4A2226;
+
+  --warn:           #E3B341;
+  --warn-soft:      #2A2114;
+
+  --avatar:         #3A3A3A;
+
+  color-scheme: dark;
+}
+
+/* ----------------------------------------------------------------------------
+ * REGISTERING THE TOKENS WITH TAILWIND
+ *
+ * The variables above exist, but Tailwind does not know about them yet -- so
+ * "bg-surface" would not be a real class. @theme is how you tell Tailwind about
+ * a new token, and it generates the matching utilities for you:
+ *
+ *     --color-surface  ->  bg-surface, text-surface, border-surface, ...
+ *     --text-body      ->  text-body
+ *     --radius-card    ->  rounded-card
+ *
+ * The word "inline" matters. Without it, Tailwind copies the value in at build
+ * time and freezes the light colour into the CSS forever. With it, the
+ * generated class says "look up --surface right now" -- so the moment the .dark
+ * class lands on <html>, every colour on screen changes with it. That one word
+ * is what makes dark mode work without touching a single component.
+ * ------------------------------------------------------------------------- */
+@theme inline {
+  /* --- Colours ------------------------------------------------------------ */
+  --color-surface:        var(--surface);
+  --color-surface-muted:  var(--surface-muted);
+  --color-hover:          var(--hover);
+
+  --color-ink:            var(--ink);
+  --color-ink-muted:      var(--ink-muted);
+
+  --color-line:           var(--line);
+
+  --color-accent:         var(--accent);
+  --color-accent-hover:   var(--accent-hover);
+  --color-accent-soft:    var(--accent-soft);
+  --color-on-accent:      var(--on-accent);
+
+  --color-heart:          var(--heart);
+  --color-danger:         var(--danger);
+  --color-danger-soft:    var(--danger-soft);
+  --color-danger-line:    var(--danger-line);
+
+  --color-warn:           var(--warn);
+  --color-warn-soft:      var(--warn-soft);
+
+  --color-avatar:         var(--avatar);
+
+  /* --- The gradient ------------------------------------------------------- */
+  /* This is the one part of the look that is ours and not Instagram's.
+   *
+   * Their gradient is the single most recognisable thing about them -- more
+   * recognisable than the logo shape itself -- and it is the one element that
+   * would make someone glancing at the screen believe this IS Instagram, rather
+   * than an app that looks like it. With a login form on a free host, that is
+   * precisely what gets a site flagged as dangerous.
+   *
+   * It costs nothing to be different here. The gradient covers about two
+   * percent of the screen: the hourglass, and later the story ring. The other
+   * ninety-eight percent is Instagram's neutral scale above. */
+  --color-brand-start:    #06B6D4;  /* cyan */
+  --color-brand-mid:      #6366F1;  /* indigo */
+  --color-brand-end:      #D946EF;  /* fuchsia */
+
+  /* --- Typefaces ---------------------------------------------------------- */
+  /* Inter for the entire interface. It was drawn for screens at small sizes and
+   * it is deliberately quiet -- in a photo app the photos are the hero, and the
+   * text around them should not compete.
+   *
+   * The list after it is the fallback chain, read left to right. If Inter has
+   * not finished downloading yet, the browser uses the device's own system
+   * font, which is already a close match -- so the text does not lurch about
+   * when Inter finally arrives. */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+               Roboto, Helvetica, Arial, sans-serif;
+
+  /* Outfit, used in exactly one place: the word "Timepass" on the login and
+   * signup pages. One characterful typeface in one place gives the app a voice.
+   * Used in more places it would only make everything noisy. */
+  --font-display: "Outfit", var(--font-sans);
+
+  /* --- Text sizes --------------------------------------------------------- */
+  /* Six. No more, ever. An app with fourteen slightly different text sizes
+   * looks accidental, because it is -- each one was picked in isolation.
+   *
+   * The weight is not part of these tokens, because Tailwind already has
+   * font-normal (400) and font-semibold (600). The pairings to keep to:
+   *
+   *     text-h1      24px  font-semibold   page heading
+   *     text-h2      18px  font-semibold   section heading
+   *     text-body    15px  font-normal     ordinary reading text
+   *     text-strong  14px  font-semibold   usernames, emphasis
+   *     text-small   13px  font-normal     secondary text
+   *     text-tiny    12px  font-normal     timestamps, counts             */
+  --text-h1:      24px;
+  --text-h2:      18px;
+  --text-body:    15px;
+  --text-strong:  14px;
+  --text-small:   13px;
+  --text-tiny:    12px;
+
+  /* --- Corners ------------------------------------------------------------ */
+  /* Two roundings, plus Tailwind's own rounded-full for profile pictures.
+   *
+   * Deliberately no shadow tokens. A card sits on the page with a border, not
+   * a drop shadow. Instagram is almost entirely flat, and that flatness is
+   * exactly why the photos stand out -- nothing else on screen has any depth
+   * to compete with them. */
+  --radius-control: 8px;   /* buttons, inputs */
+  --radius-card:    12px;  /* cards, panels */
+}
+
+/* ----------------------------------------------------------------------------
+ * SPACING -- a rule rather than a token
+ *
+ * Every gap is a multiple of 4 pixels: 4, 8, 12, 16, 24, 32, 48. Nothing in
+ * between. This is the single easiest way to make a layout look intentional
+ * rather than nudged about until it looked roughly right.
+ *
+ * Tailwind's spacing numbers are already counted in fours, so the allowed set
+ * is simply:
+ *
+ *     p-1 / gap-1 / m-1   =  4px
+ *     p-2                 =  8px
+ *     p-3                 = 12px
+ *     p-4                 = 16px
+ *     p-6                 = 24px
+ *     p-8                 = 32px
+ *     p-12                = 48px
+ *
+ * Anything else -- p-5 (20px), py-1.5 (6px), p-7 (28px) -- is off the scale.
+ * A few of those are still left in the components from before this rule
+ * existed. They get cleared out in 11b, when the layouts are rebuilt.
+ * ------------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------------------
+ * PAGE DEFAULTS
+ *
+ * @layer base is Tailwind's slot for "plain rules about plain elements". Rules
+ * put here sit underneath every utility class, so a class on an element always
+ * wins over them. Without the layer, this body rule could outrank a bg- utility
+ * somewhere and quietly override it.
+ *
+ * This is what makes the page itself go black in dark mode. Every component
+ * could be perfect and the app would still be white behind them without it.
+ * ------------------------------------------------------------------------- */
+@layer base {
+  body {
+    background-color: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+  }
+}

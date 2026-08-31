@@ -53,14 +53,14 @@ export default function FollowButton({ username, isFollowing, onChange }) {
         disabled={submitting}
         className={
           isFollowing
-            ? 'rounded-lg border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50'
-            : 'rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:bg-slate-400'
+            ? 'rounded-lg border border-line px-4 py-1.5 text-sm font-medium text-ink transition hover:bg-hover disabled:opacity-50'
+            : 'rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-on-accent transition hover:bg-accent-hover disabled:bg-accent-soft'
         }
       >
         {submitting ? '...' : isFollowing ? 'Following' : 'Follow'}
       </button>
 
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>
   )
 }

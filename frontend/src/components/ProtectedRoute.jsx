@@ -22,8 +22,8 @@ export default function ProtectedRoute({ children }) {
   // to /login here would flash the login page on every refresh.
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <p className="text-slate-500">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-surface">
+        <p className="text-ink-muted">Loading...</p>
       </div>
     )
   }

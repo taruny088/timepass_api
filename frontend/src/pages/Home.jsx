@@ -80,17 +80,17 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface">
       <Header />
 
       <main className="mx-auto max-w-lg px-4 py-8">
         {/* STATE 1: loading */}
-        {loading && <p className="text-center text-slate-500">Loading feed...</p>}
+        {loading && <p className="text-center text-ink-muted">Loading feed...</p>}
 
         {/* STATE 2: it failed */}
         {!loading && error && posts.length === 0 && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-            <p className="text-red-700">{error}</p>
+          <div className="rounded-xl border border-danger-line bg-danger-soft p-6 text-center">
+            <p className="text-danger">{error}</p>
           </div>
         )}
 
@@ -99,17 +99,17 @@ export default function Home() {
             of a blank screen when I follow nobody yet." A blank page looks
             broken; this explains what to do next. */}
         {!loading && !error && posts.length === 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
-            <h2 className="text-lg font-semibold text-slate-900">
+          <div className="rounded-xl border border-line bg-surface p-8 text-center">
+            <h2 className="text-lg font-semibold text-ink">
               Your feed is empty
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-ink-muted">
               Your feed shows posts from people you follow. Find someone and
               follow them, and their posts will appear here.
             </p>
             <Link
               to={`/profile/${user.username}`}
-              className="mt-4 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+              className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent transition hover:bg-accent-hover"
             >
               Go to my profile
             </Link>
@@ -131,7 +131,7 @@ export default function Home() {
         {/* An error that happened while loading MORE, with posts already on
             screen. Shown under them rather than replacing them. */}
         {error && posts.length > 0 && (
-          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-center text-sm text-red-700">
+          <p className="mt-4 rounded-lg bg-danger-soft px-3 py-2 text-center text-sm text-danger">
             {error}
           </p>
         )}
@@ -140,7 +140,7 @@ export default function Home() {
           <button
             onClick={loadMore}
             disabled={loadingMore}
-            className="mt-6 w-full rounded-lg border border-slate-300 bg-white py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+            className="mt-6 w-full rounded-lg border border-line bg-surface py-2 text-sm font-medium text-ink transition hover:bg-hover disabled:opacity-50"
           >
             {loadingMore ? 'Loading...' : 'Load more'}
           </button>
@@ -149,7 +149,7 @@ export default function Home() {
         {/* Only say "you have reached the end" once there is actually
             something above it to have reached the end of. */}
         {!loading && !hasMore && posts.length > 0 && (
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p className="mt-6 text-center text-sm text-ink-muted">
             You are all caught up.
           </p>
         )}

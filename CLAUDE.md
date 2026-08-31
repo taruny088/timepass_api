@@ -1,6 +1,6 @@
 # How to work with me
 
-**Current work: Phase 11a — Identity and design system. Not started.**
+**Current work: Phase 11a — Identity and design system. Works locally, pushed. Waiting on the live check before 11b.**
 (Keep this line up to date. It is the first thing to read at the start of a session.)
 
 ## My situation

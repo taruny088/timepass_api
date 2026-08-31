@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import Logo from '../components/Logo'
 
 export default function Login() {
   const { user, login } = useAuth()
@@ -53,25 +54,34 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-sm">
-        <h1 className="mb-1 text-center text-3xl font-bold text-slate-900">
-          Insta Clone
-        </h1>
-        <p className="mb-6 text-center text-sm text-slate-500">
+        {/* The logo, then the name. This is the only kind of screen where the
+            app shows both -- once you are inside, the symbol alone is enough,
+            because you already know where you are. */}
+        <div className="mb-4 flex flex-col items-center gap-2">
+          <Logo className="h-12 w-12" />
+          {/* font-display is Outfit, and this is one of only two places in the
+              whole app it appears. One characterful typeface, used once, gives
+              the app a voice. Used everywhere it would just be noise. */}
+          <h1 className="font-display text-h1 font-semibold text-ink">
+            Timepass
+          </h1>
+        </div>
+        <p className="mb-6 text-center text-small text-ink-muted">
           Log in to see your feed
         </p>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+          className="space-y-4 rounded-xl border border-line bg-surface p-6"
         >
           {/* The error state. Rendered only when there is something to say:
               the && means "if error is non-empty, draw this". */}
           {error && (
             <p
               role="alert"
-              className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger"
             >
               {error}
             </p>
@@ -80,7 +90,7 @@ export default function Login() {
           <div>
             <label
               htmlFor="email"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-ink"
             >
               Email
             </label>
@@ -91,7 +101,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="you@example.com"
             />
           </div>
@@ -99,7 +109,7 @@ export default function Login() {
           <div>
             <label
               htmlFor="password"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-ink"
             >
               Password
             </label>
@@ -110,7 +120,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:border-slate-900"
+              className="w-full rounded-lg border border-line px-3 py-2 text-ink outline-none focus:border-ink"
               placeholder="••••••••"
             />
           </div>
@@ -120,17 +130,17 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-slate-900 py-2 font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="w-full rounded-lg bg-accent py-2 font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-accent-soft"
           >
             {submitting ? 'Logging in...' : 'Log in'}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-slate-600">
+        <p className="mt-4 text-center text-sm text-ink-muted">
           No account?{' '}
           {/* <Link> instead of <a>. An <a> would reload the entire page and
               throw away all React state. Link swaps the component instead. */}
-          <Link to="/signup" className="font-medium text-slate-900 underline">
+          <Link to="/signup" className="font-medium text-ink underline">
             Sign up
           </Link>
         </p>
