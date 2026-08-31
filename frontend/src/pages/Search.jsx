@@ -136,7 +136,7 @@ export default function Search() {
                 <li key={person.id}>
                   <Link
                     to={`/profile/${person.username}`}
-                    className="flex items-center gap-3 px-4 py-3 transition hover:bg-hover"
+                    className="flex items-center gap-3 px-4 py-3 transition active:bg-hover hover:bg-hover"
                   >
                     <Avatar
                       src={person.avatar_url}

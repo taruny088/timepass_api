@@ -241,13 +241,17 @@ export default function Profile() {
                     key={post.id} tells React which item is which, so when one
                     is removed it updates just that square instead of redrawing
                     the whole grid. */}
+                {/* The square comes from PostImage now, not from here. Since
+                    11c it reserves its own space before the photo arrives, so
+                    setting the shape in two places would just be two rules
+                    fighting over the same box. */}
                 {posts.map((post) => (
-                  <div key={post.id} className="group relative aspect-square">
-                    <Link to={`/post/${post.id}`}>
+                  <div key={post.id} className="group relative">
+                    <Link to={`/post/${post.id}`} className="block">
                       <PostImage
                         src={post.image_url}
                         alt={post.caption || 'post'}
-                        className="h-full w-full rounded object-cover"
+                        className="rounded-control"
                       />
                     </Link>
 
@@ -269,7 +273,7 @@ export default function Profile() {
                         onClick={() => handleDelete(post.id)}
                         aria-label="Delete post"
                         title="Delete post"
-                        className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-control bg-surface/90 text-danger transition md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                        className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-control bg-surface/90 text-danger transition active:scale-90 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </button>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
+import timeAgo from '../lib/timeAgo'
 import Button from './ui/Button'
 import Input from './ui/Input'
 import Spinner from './ui/Spinner'
@@ -132,9 +133,16 @@ export default function CommentList({ post, onCountChange }) {
                 <span className="whitespace-pre-wrap break-words text-ink">
                   {comment.body}
                 </span>
-                <p className="text-tiny text-ink-muted">
-                  {new Date(comment.created_at).toLocaleString()}
-                </p>
+                {/* Same treatment as a post: "2h ago" on screen, the exact
+                    timestamp in dateTime for anything reading the page, and
+                    the full date in a tooltip on hover. */}
+                <time
+                  dateTime={comment.created_at}
+                  title={new Date(comment.created_at).toLocaleString()}
+                  className="block text-tiny text-ink-muted"
+                >
+                  {timeAgo(comment.created_at)}
+                </time>
               </div>
 
               {/* The same touch bug as the profile grid: this was opacity-0
@@ -147,7 +155,7 @@ export default function CommentList({ post, onCountChange }) {
                   onClick={() => handleDelete(comment.id)}
                   aria-label="Delete comment"
                   title="Delete comment"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-ink-muted transition hover:bg-danger-soft hover:text-danger md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-ink-muted transition active:scale-90 hover:bg-danger-soft hover:text-danger md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>

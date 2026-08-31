@@ -249,6 +249,54 @@
    * to compete with them. */
   --radius-control: 8px;   /* buttons, inputs */
   --radius-card:    12px;  /* cards, panels */
+
+  /* --- Motion ------------------------------------------------------------- */
+  /* The heart that appears over a photo when you double-tap it, then fades.
+   *
+   * Registering it here as --animate-heart-burst is what makes the class
+   * "animate-heart-burst" exist. The keyframes themselves are below, outside
+   * @theme, because they describe the movement rather than name a token.
+   *
+   * forwards means "stop on the last frame and stay there" -- without it the
+   * heart would snap back to full size at the end before React removed it. */
+  --animate-heart-burst: heart-burst 700ms ease-out forwards;
+}
+
+/* The shape of the burst: appear small, overshoot, settle, fade out.
+ *
+ * The overshoot at 15% is the whole trick. Something that scales evenly from
+ * 0 to 1 looks mechanical; something that goes slightly too far and comes back
+ * reads as physical. It is the difference between an animation you notice and
+ * one that just feels right. */
+@keyframes heart-burst {
+  0%   { opacity: 0; transform: scale(0.3); }
+  15%  { opacity: 0.95; transform: scale(1.25); }
+  30%  { transform: scale(1); }
+  70%  { opacity: 0.95; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+
+/* ----------------------------------------------------------------------------
+ * PEOPLE WHO ASK FOR LESS MOVEMENT
+ *
+ * prefers-reduced-motion is a setting on every phone and laptop. People turn it
+ * on for real reasons -- motion sickness, vertigo, migraine triggered by things
+ * sliding about the screen. It is not a cosmetic preference.
+ *
+ * This turns off animation and scrolling effects across the whole app in one
+ * place, so no individual component has to remember. Note it does not remove
+ * the feature: a double tap still likes the post, the heart just appears and
+ * goes without the flourish.
+ * ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ----------------------------------------------------------------------------

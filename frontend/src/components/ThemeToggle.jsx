@@ -33,7 +33,7 @@ export default function ThemeToggle() {
       title={label}
       // min-h-11 min-w-11 is the 44 pixel touch target. The old version was
       // p-2 around a 20px icon -- 36 pixels, and fiddly with a thumb.
-      className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-ink-muted transition hover:bg-hover hover:text-ink"
+      className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-ink-muted transition active:scale-90 hover:bg-hover hover:text-ink"
     >
       {/* A lucide icon is a React component that draws an SVG, so it takes
           className like anything else and its colour comes from currentColor --

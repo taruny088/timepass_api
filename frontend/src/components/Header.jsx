@@ -66,7 +66,7 @@ export default function Header() {
             onClick={handleLogout}
             aria-label="Log out"
             title="Log out"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-ink-muted transition hover:bg-hover hover:text-ink"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-ink-muted transition active:scale-90 hover:bg-hover hover:text-ink"
           >
             <LogOut className="h-6 w-6" aria-hidden="true" />
           </button>
