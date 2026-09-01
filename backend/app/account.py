@@ -7,22 +7,37 @@ token belongs to. This file is about maintaining an account that already
 exists. They share the /auth prefix because that is where a browser expects to
 find them, but they are different jobs, and auth.py is long enough already.
 
-Step 3 of this phase adds change-password, forgot-password and reset-password
-here. They reuse email_tokens.py completely unchanged -- the machinery below is
-built once and pointed at a second job.
+Step 3 added change-password, forgot-password and reset-password, and it reused
+email_tokens.py WITHOUT CHANGING A LINE OF IT. That was the bet made when this
+phase was planned -- that confirming an address and resetting a password are the
+same machinery pointed at two jobs -- and it paid off. The only new code below is
+what happens after a code checks out.
 """
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.email_tokens import PURPOSE_VERIFY_EMAIL, create_token, use_token
+from app.email_tokens import (
+    PURPOSE_PASSWORD_RESET,
+    PURPOSE_VERIFY_EMAIL,
+    create_token,
+    use_token,
+)
 from app.mailer import APP_URL, EMAIL_ENABLED, EmailResult, send_email
 from app.models import User
-from app.schemas import MessageOut, VerifyEmailRequest
+from app.security import hash_password, verify_password
+from app.schemas import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    MessageOut,
+    ResetPasswordRequest,
+    VerifyEmailRequest,
+)
 
 router = APIRouter(prefix="/auth", tags=["account"])
 
@@ -177,4 +192,210 @@ def resend_verification(
 
     return MessageOut(
         detail=f"A new confirmation link is on its way to {current_user.email}."
+    )
+
+
+def send_password_reset_email(
+    db: Session, user: User, background_tasks: BackgroundTasks
+) -> None:
+    """Make a reset code for this user and QUEUE the email.
+
+    The result is deliberately thrown away, unlike the verification send. The
+    endpoint calling this must reply identically whether or not the address
+    exists, so it cannot report a send failure without also revealing that
+    there was somebody to send to. The failure is still printed in full to the
+    server log by mailer.py, which is the right place for it here.
+
+    WHY THE SEND IS QUEUED RATHER THAN DONE HERE. A BackgroundTask is work
+    FastAPI runs after the reply has already gone back to the browser. Calling
+    Resend takes a few hundred milliseconds because it is a request across the
+    internet, and doing it inline would make this endpoint take that long for a
+    registered address and almost no time for an unregistered one.
+
+    That difference is the whole enumeration leak coming back in through a side
+    door -- not in WHAT is said, which is identical, but in HOW LONG IT TAKES,
+    which anybody can measure with a stopwatch. Queueing means both answers
+    come back after the same trivial amount of work.
+    """
+    raw_token = create_token(db, user, PURPOSE_PASSWORD_RESET)
+
+    link = f"{APP_URL}/reset-password?token={raw_token}"
+
+    background_tasks.add_task(
+        send_email,
+        to=user.email,
+        subject="Reset your password",
+        body=(
+            f"Hello {user.username},\n\n"
+            "Somebody asked to reset the password on your Timepass account. "
+            "If it was you, open this link to choose a new one:\n\n"
+            f"{link}\n\n"
+            "The link works once and expires in an hour.\n\n"
+            "If it was not you, ignore this message. Your password has not "
+            "changed, and nobody can change it without this link.\n"
+        ),
+    )
+
+
+@router.post(
+    "/change-password",
+    response_model=MessageOut,
+    summary="Change your password, knowing the current one",
+)
+def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessageOut:
+    """Change the logged-in user's password.
+
+    THE CURRENT PASSWORD IS REQUIRED, and being logged in is not a substitute
+    for it. A borrowed unlocked laptop would otherwise be enough to take the
+    account permanently: set a new password, and the real owner is locked out
+    with no way back except the reset flow below.
+
+    get_current_user, not get_verified_user. Somebody who has not confirmed
+    their address still owns their password, and blocking them from changing it
+    would punish them for an unrelated thing.
+    """
+    if not verify_password(payload.current_password, current_user.password_hash):
+        # 403, not 401. We know exactly who this is and their token is fine.
+        # A 401 would make the frontend assume the login had expired and send
+        # them to log in again, which fixes nothing and hides the real cause.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="That is not your current password.",
+        )
+
+    # Reject a change that changes nothing. Not a security rule -- it is almost
+    # always a mis-paste, and reporting success would leave somebody believing
+    # they had rotated a password they had not.
+    if payload.new_password == payload.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The new password must be different from the current one.",
+        )
+
+    current_user.password_hash = hash_password(payload.new_password)
+    db.commit()
+
+    # WORTH KNOWING, AND DELIBERATELY NOT FIXED HERE. Changing a password does
+    # not log anybody else out. A JWT cannot be cancelled by the server -- there
+    # is no list of issued tokens to cross off, which is the whole point of the
+    # design -- so a token somebody else already holds keeps working until it
+    # expires. ACCESS_TOKEN_EXPIRE_MINUTES is 15, so that window is short.
+    # Closing it properly needs a token version on the user row and a check on
+    # every request. That is a real feature, not a line of code, and nothing in
+    # PLAN2.md asks for it.
+    return MessageOut(detail="Your password has been changed.")
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageOut,
+    summary="Ask for a password reset link",
+)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> MessageOut:
+    """Email a reset link, if that address has an account.
+
+    THE ONE RULE THAT MATTERS: the reply is identical either way.
+
+    Saying "no account with that email" would turn this endpoint into a tool
+    for testing which addresses are registered -- an ENUMERATION ATTACK. Not a
+    break-in by itself; it builds the list a break-in starts from, and it leaks
+    who uses this site to anybody who cares to ask.
+
+    The trap is that the helpful-feeling message is the wrong one. So the single
+    reply is built FIRST and returned from both paths. Written as two different
+    returns in two branches, somebody eventually improves one of them and the
+    leak quietly comes back.
+
+    THE SECOND HALF OF THE RULE, WHICH IS EASY TO MISS: the two answers must
+    also take the SAME AMOUNT OF TIME. Identical wording is worthless if a
+    registered address takes half a second and an unregistered one comes back
+    instantly, because the stopwatch then answers the question the words
+    refused to. That is called a timing attack.
+
+    This was got WRONG here first, in a way worth recording. The first version
+    called waste_time_like_a_real_check() on the unknown branch, copying what
+    auth.py does at login. At login that is right: the real path runs bcrypt,
+    which takes about half a second, so the decoy has to run bcrypt too.
+
+    Here the real path runs no bcrypt at all -- it writes a row and sends an
+    email. So the decoy was fifty times SLOWER than the thing it was imitating,
+    and the timing signal was not merely still present but inverted and far
+    louder than before: a fast reply meant the account existed.
+
+    The lesson is that a constant-time defence has to be measured, not
+    reasoned about. Copying the shape of one from elsewhere in the codebase is
+    exactly how you get a comment claiming a protection that is not there.
+
+    The fix is to make both branches genuinely cheap: the slow part, the call
+    across the internet to Resend, is queued and happens after the reply has
+    already been sent.
+    """
+    same_answer_either_way = MessageOut(
+        detail=(
+            "If that email address has an account, a reset link is on its way. "
+            "Check your spam folder if it does not arrive."
+        )
+    )
+
+    user = db.scalars(select(User).where(User.email == payload.email)).first()
+
+    if user is None:
+        return same_answer_either_way
+
+    send_password_reset_email(db, user, background_tasks)
+
+    return same_answer_either_way
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageOut,
+    summary="Set a new password using the code from a reset link",
+)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> MessageOut:
+    """Spend a reset code and set the new password.
+
+    PUBLIC, like verify-email, and for a stronger reason: somebody who has
+    forgotten their password cannot log in, so requiring a login would make the
+    feature impossible to use.
+
+    The code stands in for the password, which is why every rule in
+    email_tokens.py earns its place at once here. Hashed, so a stolen database
+    yields no working links. Expires within the hour. Works exactly once, so a
+    forwarded or leaked email is worthless afterwards.
+    """
+    user = use_token(db, payload.token, PURPOSE_PASSWORD_RESET)
+
+    if user is None:
+        # 400 rather than a cheerful 200. Unlike a duplicate verification click,
+        # this genuinely failed and the person has to do something about it.
+        # It still says nothing about WHICH check failed.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "That link is not valid any more. It may have expired or "
+                "already been used. Ask for a new one."
+            ),
+        )
+
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+
+    # NOT also marked email-verified here, even though clicking this link does
+    # prove control of the inbox. It is a defensible thing to do, it is not what
+    # PLAN2.md asks for, and quietly widening what an endpoint does beyond what
+    # its name says is how a codebase stops being predictable.
+    return MessageOut(
+        detail="Your password has been reset. You can log in with it now."
     )

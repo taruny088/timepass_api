@@ -112,6 +112,18 @@ export default function Login() {
           <Button type="submit" fullWidth disabled={submitting}>
             {submitting ? 'Logging in...' : 'Log in'}
           </Button>
+
+          {/* Inside the card and directly under the button, which is where
+              Instagram puts it and where people look for it -- at the moment
+              the password did not work, not at the bottom of the page. */}
+          <p className="text-center text-small">
+            <Link
+              to="/forgot-password"
+              className="text-ink-muted underline hover:text-ink"
+            >
+              Forgot password?
+            </Link>
+          </p>
         </Card>
 
         <p className="mt-4 text-center text-small text-ink-muted">

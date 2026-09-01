@@ -1,12 +1,15 @@
 import { Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
+import ChangePassword from './pages/ChangePassword'
 import CreatePost from './pages/CreatePost'
 import EditProfile from './pages/EditProfile'
+import ForgotPassword from './pages/ForgotPassword'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
+import ResetPassword from './pages/ResetPassword'
 import Search from './pages/Search'
 import Signup from './pages/Signup'
 import VerifyEmail from './pages/VerifyEmail'
@@ -34,6 +37,18 @@ export default function App() {
           It is safe to leave open because the code in the address IS the
           proof -- it went to that one inbox and nowhere else. */}
       <Route path="/verify-email" element={<VerifyEmail />} />
+
+      {/* Both PUBLIC, and they have to be. Somebody who has forgotten their
+          password cannot log in, so putting either of these behind
+          ProtectedRoute would make the feature impossible to use by exactly
+          the people it exists for.
+
+          Nothing is given away by leaving them open. /forgot-password says the
+          same sentence whether or not the address is registered, and
+          /reset-password is useless without a code that was emailed to one
+          inbox and expires in an hour. */}
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Wrapping the element in ProtectedRoute is what makes it private. */}
       <Route
@@ -70,6 +85,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <EditProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accounts/password"
+        element={
+          <ProtectedRoute>
+            <ChangePassword />
           </ProtectedRoute>
         }
       />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import AvatarUpload from '../components/AvatarUpload'
@@ -174,6 +174,20 @@ export default function EditProfile() {
             <p className="mt-1 text-right text-tiny text-ink-muted">
               {bio.length} / {MAX_BIO}
             </p>
+          </div>
+
+          {/* Password lives on its own page rather than in this form.
+              Mixing them would mean one Save button doing two unrelated
+              things, and a password change needs the current password while
+              a bio change does not -- one form, two different sets of rules,
+              is how a form ends up asking for a password to edit a bio. */}
+          <div className="border-t border-line pt-4">
+            <Link
+              to="/accounts/password"
+              className="text-small font-semibold text-accent underline"
+            >
+              Change password
+            </Link>
           </div>
 
           <div className="flex gap-2">

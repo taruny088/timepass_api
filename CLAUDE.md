@@ -1,6 +1,9 @@
 # How to work with me
 
-**Current work: Phase 13 — Account and profile. Steps 1 and 2 of 3 done (edit profile; email verification). Step 3 is passwords.**
+**Current work: Phase 13 — Account and profile. All three steps built and tested
+locally. NOT closed: no real email has ever been delivered, so verification and
+password reset are unproven end to end. Needs RESEND_API_KEY set, and testing
+live on a phone.**
 (Phases 11 and 12 done and tested live. Design system: `frontend/src/index.css`.
 Shared pieces: `frontend/src/components/ui/`. Alembic is set up with four
 migrations applied to the live database; `create_tables.py` must never be used to

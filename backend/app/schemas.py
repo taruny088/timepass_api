@@ -29,6 +29,29 @@ MAX_PASSWORD_LENGTH = 72
 MIN_PASSWORD_LENGTH = 8
 
 
+def check_password_bytes(value: str) -> str:
+    """Refuse a password longer than bcrypt will actually read.
+
+    max_length on a field counts CHARACTERS; bcrypt counts BYTES. Most
+    characters are one byte, but an accented letter is two and an emoji is
+    four -- so a 72 character password can be far more than 72 bytes, and
+    bcrypt silently ignores everything past the 72nd. Someone would think they
+    had chosen a long password while only the first part of it protected
+    anything.
+
+    Written once here because Phase 13 adds three more places that accept a
+    password -- signing up, changing one, and resetting one. Four copies of a
+    rule is four chances for one of them to be forgotten, and the one that gets
+    forgotten is the one an attacker finds.
+    """
+    if len(value.encode("utf-8")) > MAX_PASSWORD_LENGTH:
+        raise ValueError(
+            f"Password must be at most {MAX_PASSWORD_LENGTH} bytes. "
+            "Accented letters and emoji count as more than one byte each."
+        )
+    return value
+
+
 class UserCreate(BaseModel):
     """What someone must send to POST /auth/signup."""
 
@@ -96,18 +119,8 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def password_fits_bcrypt(cls, value: str) -> str:
-        """max_length above counts characters; bcrypt counts bytes.
-
-        Most characters are one byte, but an accented letter is two and an
-        emoji is four. So a 72 character password can still be far more than
-        72 bytes. This checks the measurement bcrypt actually uses.
-        """
-        if len(value.encode("utf-8")) > MAX_PASSWORD_LENGTH:
-            raise ValueError(
-                f"Password must be at most {MAX_PASSWORD_LENGTH} bytes. "
-                "Accented letters and emoji count as more than one byte each."
-            )
-        return value
+        """See check_password_bytes above -- shared with the Phase 13 schemas."""
+        return check_password_bytes(value)
 
 
 class UserLogin(BaseModel):
@@ -303,6 +316,93 @@ class VerifyEmailRequest(BaseModel):
     """
 
     token: str = Field(..., min_length=1, max_length=200)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Changing your password while logged in.
+
+    TWO FIELDS, AND THE FIRST ONE IS THE POINT.
+
+    Being logged in is not enough to change a password. A borrowed unlocked
+    laptop, or a token copied from a shared computer, would otherwise be enough
+    to take the account permanently -- the thief sets a new password and the
+    real owner is locked out of their own account.
+
+    Asking for the current password means holding the session is not the same
+    as holding the account. It is the rule CLAUDE.md sets, and it is the single
+    cheapest protection in this whole phase.
+    """
+
+    current_password: str = Field(..., examples=["the-one-you-have-now"])
+
+    # The new one is checked properly, because this is a password being CHOSEN.
+    # current_password above has no length rules at all: it is only ever
+    # compared against what is stored, and rejecting a short one early would
+    # quietly confirm that short passwords do not exist here.
+    new_password: str = Field(
+        ...,
+        min_length=MIN_PASSWORD_LENGTH,
+        max_length=MAX_PASSWORD_LENGTH,
+        examples=["correct-horse-battery"],
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_fits_bcrypt(cls, value: str) -> str:
+        return check_password_bytes(value)
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Asking for a reset link. One field, and a hard rule about the reply.
+
+    THE REPLY MUST BE IDENTICAL whether or not the address is registered.
+
+    Saying "no account with that email" turns this endpoint into a tool for
+    checking which addresses have accounts here -- an ENUMERATION ATTACK. It is
+    not a break-in on its own; it builds the list that a break-in starts from,
+    and it also leaks who uses this site to anyone who asks.
+
+    The rule is easy to state and easy to break by accident, because the
+    obvious, helpful-feeling error message is exactly the wrong thing. It is
+    enforced in the endpoint, not here.
+    """
+
+    email: EmailStr = Field(..., examples=["john@example.com"])
+
+    @field_validator("email")
+    @classmethod
+    def email_to_lowercase(cls, value: str) -> str:
+        """Must match the lowercasing done at signup, or the lookup silently
+        finds nothing and a real user is told nothing is wrong."""
+        return value.lower()
+
+
+class ResetPasswordRequest(BaseModel):
+    """The code from a reset link, plus the new password to set.
+
+    No email address and no username. The code alone says whose account this
+    is, because it was made for one user and nobody else was ever sent it.
+    Accepting an address here as well would invite the mistake of trusting it.
+
+    Note there is no current_password either, and that is the whole difference
+    between this and ChangePasswordRequest: the person cannot supply it -- not
+    knowing it is why they are here. Control of the email inbox stands in for
+    it, which is exactly why the code has to be single-use and short-lived.
+    """
+
+    token: str = Field(..., min_length=1, max_length=200)
+
+    new_password: str = Field(
+        ...,
+        min_length=MIN_PASSWORD_LENGTH,
+        max_length=MAX_PASSWORD_LENGTH,
+        examples=["correct-horse-battery"],
+    )
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_fits_bcrypt(cls, value: str) -> str:
+        return check_password_bytes(value)
 
 
 class UserProfile(BaseModel):
