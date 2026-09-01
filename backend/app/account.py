@@ -20,14 +20,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.email_tokens import PURPOSE_VERIFY_EMAIL, create_token, use_token
-from app.mailer import APP_URL, EMAIL_ENABLED, send_email
+from app.mailer import APP_URL, EMAIL_ENABLED, EmailResult, send_email
 from app.models import User
 from app.schemas import MessageOut, VerifyEmailRequest
 
 router = APIRouter(prefix="/auth", tags=["account"])
 
 
-def send_verification_email(db: Session, user: User) -> None:
+def send_verification_email(db: Session, user: User) -> EmailResult:
     """Make a fresh confirmation code for this user and email it to them.
 
     Lives here rather than in auth.py because signup is not the only thing that
@@ -47,7 +47,7 @@ def send_verification_email(db: Session, user: User) -> None:
     # fetched by spam filters before a human sees it.
     link = f"{APP_URL}/verify-email?token={raw_token}"
 
-    send_email(
+    return send_email(
         to=user.email,
         subject="Confirm your email address",
         body=(
@@ -142,24 +142,36 @@ def resend_verification(
         # sending another link would be confusing.
         return MessageOut(detail="Your email address is already confirmed.")
 
-    send_verification_email(db, current_user)
+    result = send_verification_email(db, current_user)
 
-    # Say which of the two things actually happened, rather than always
-    # claiming the first. With no key configured no mail leaves the building,
-    # and telling somebody to go and check their inbox sends them to wait for
-    # something that is never coming -- which reads as a broken feature rather
-    # than as a setting nobody has filled in yet.
+    # THREE OUTCOMES, THREE DIFFERENT SENTENCES. This endpoint used to have
+    # one, and said it regardless of what actually happened.
     #
-    # This is the one place the API deliberately describes its own
-    # configuration to the user. It is safe to do here: it reveals nothing
-    # secret, and it is only ever seen by somebody already logged in to the
-    # account in question.
+    # No key configured. Nothing was sent and nothing is wrong -- the link went
+    # to the server's own terminal. Telling somebody to check their inbox here
+    # sends them to wait for something that is never coming.
     if not EMAIL_ENABLED:
         return MessageOut(
             detail=(
                 "Email is not configured on this server, so nothing was sent. "
                 "The confirmation link has been printed to the backend's "
                 "terminal instead -- copy it from there."
+            )
+        )
+
+    # The provider refused it. THIS IS THE CASE THAT WAS INVISIBLE: the send
+    # failed, was logged, and the user was told it was on its way regardless.
+    #
+    # The reason is not repeated here on purpose. A provider's error names
+    # settings and addresses belonging to whoever runs the server, not to
+    # whoever is reading the screen -- so the sentence points at the log rather
+    # than quoting it. mailer.py prints the full text there, in a block.
+    if not result.sent:
+        return MessageOut(
+            detail=(
+                "The email could not be sent. This is a problem with the "
+                "server's email settings, not with your account -- the exact "
+                "reason is in the server log."
             )
         )
 
