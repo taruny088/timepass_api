@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.email_tokens import PURPOSE_VERIFY_EMAIL, create_token, use_token
-from app.mailer import APP_URL, send_email
+from app.mailer import APP_URL, EMAIL_ENABLED, send_email
 from app.models import User
 from app.schemas import MessageOut, VerifyEmailRequest
 
@@ -143,6 +143,25 @@ def resend_verification(
         return MessageOut(detail="Your email address is already confirmed.")
 
     send_verification_email(db, current_user)
+
+    # Say which of the two things actually happened, rather than always
+    # claiming the first. With no key configured no mail leaves the building,
+    # and telling somebody to go and check their inbox sends them to wait for
+    # something that is never coming -- which reads as a broken feature rather
+    # than as a setting nobody has filled in yet.
+    #
+    # This is the one place the API deliberately describes its own
+    # configuration to the user. It is safe to do here: it reveals nothing
+    # secret, and it is only ever seen by somebody already logged in to the
+    # account in question.
+    if not EMAIL_ENABLED:
+        return MessageOut(
+            detail=(
+                "Email is not configured on this server, so nothing was sent. "
+                "The confirmation link has been printed to the backend's "
+                "terminal instead -- copy it from there."
+            )
+        )
 
     return MessageOut(
         detail=f"A new confirmation link is on its way to {current_user.email}."

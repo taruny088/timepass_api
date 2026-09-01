@@ -42,6 +42,20 @@ import resend
 # was left blank is a mistake, not a choice.
 RESEND_API_KEY = os.getenv("RESEND_API_KEY") or None
 
+# Can this app actually send email right now?
+#
+# ADDED AFTER A REAL PIECE OF CONFUSION, and worth keeping for that reason.
+# Without a key the resend endpoint still cheerfully replied "a new
+# confirmation link is on its way to you@example.com" -- while sending nothing
+# at all. So the person waits at an inbox that will never receive anything, and
+# concludes the feature is broken. It was not; the message was lying.
+#
+# The rule this file already states for itself is that the fallback must be
+# LOUD. That rule has to hold at the top of the stack too, not just in the
+# server log -- a truthful log under a false message on screen is no better
+# than silence, because the person reading the screen is not reading the log.
+EMAIL_ENABLED = RESEND_API_KEY is not None
+
 # Who the mail appears to come from.
 #
 # WITHOUT YOUR OWN DOMAIN this must stay as Resend's shared test sender, and it
