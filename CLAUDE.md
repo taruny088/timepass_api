@@ -1,7 +1,15 @@
 # How to work with me
 
-**Current work: PHASE 16 — messaging. Sitting 16a done (tables, migration,
-endpoints), tested locally, not yet pushed. Next: 16b, the screens.**
+**Current work: PHASE 16 — messaging. 16a done and live. 16b built (inbox and
+chat screens) — needs clicking through locally before pushing. Next: 16c, the
+WebSocket.**
+
+**`npm run build` IS MEANINGLESS WITHOUT frontend/.env.** VITE_API_URL unset
+makes the guard in api/client.js an unconditional throw, which the bundler can
+see, so it discards the whole app as unreachable. The build still reports
+success and produces 230kB of React with no application in it. A local
+frontend/.env now exists (git-ignored) so this cannot happen again — if a build
+ever drops back to ~230kB, that is the cause.
 (Phases 11, 12 and 13 are done and live. Phase 14 and Phase 15 were both moved
 after 16 — see the phase table in PLAN2.md. Those are decisions, not drift.
 ANYONE MAY MESSAGE ANYONE: PLAN2 said "two people who follow each other" and

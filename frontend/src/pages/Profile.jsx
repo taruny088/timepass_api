@@ -1,6 +1,6 @@
 import { Image as ImageIcon, Trash2, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import AvatarUpload from '../components/AvatarUpload'
@@ -25,6 +25,7 @@ export default function Profile() {
   const { username } = useParams()
 
   const { user: me } = useAuth()
+  const navigate = useNavigate()
 
   const [profile, setProfile] = useState(null)
   const [posts, setPosts] = useState([])
@@ -38,6 +39,8 @@ export default function Profile() {
   // closed. One piece of state rather than two booleans, because the two lists
   // can never both be open -- and two booleans would let them be.
   const [listKind, setListKind] = useState(null)
+
+  const [startingChat, setStartingChat] = useState(false)
 
   const [listPeople, setListPeople] = useState([])
   const [listLoading, setListLoading] = useState(false)
@@ -141,6 +144,27 @@ export default function Profile() {
       // + 1 when we just followed, - 1 when we just unfollowed.
       follower_count: current.follower_count + (nowFollowing ? 1 : -1),
     }))
+  }
+
+  async function handleMessage() {
+    setStartingChat(true)
+    setError('')
+
+    try {
+      // POST, even though this usually opens something that already exists.
+      //
+      // The browser cannot know whether you two have talked before, and it
+      // should not have to. The endpoint answers "give me our conversation"
+      // and quietly creates one the first time -- so this same call works for
+      // the first message and the thousandth.
+      const response = await api.post('/conversations', {
+        username: profile.username,
+      })
+      navigate(`/messages/${response.data.id}`)
+    } catch (err) {
+      setError(err.userMessage || 'Could not open the conversation.')
+      setStartingChat(false)
+    }
   }
 
   async function handleDelete(postId) {
@@ -328,12 +352,28 @@ export default function Profile() {
                     </Button>
                   </Link>
                 ) : (
-                  <FollowButton
-                    username={profile.username}
-                    isFollowing={profile.is_following}
-                    onChange={handleFollowChange}
-                    fullWidth
-                  />
+                  // Follow and Message side by side, which is Instagram's
+                  // layout. flex-1 on both splits the width evenly, so neither
+                  // ends up the awkward narrow one.
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <FollowButton
+                        username={profile.username}
+                        isFollowing={profile.is_following}
+                        onChange={handleFollowChange}
+                        fullWidth
+                      />
+                    </div>
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      className="flex-1"
+                      disabled={startingChat}
+                      onClick={handleMessage}
+                    >
+                      {startingChat ? 'Opening...' : 'Message'}
+                    </Button>
+                  </div>
                 )}
               </div>
             </Card>

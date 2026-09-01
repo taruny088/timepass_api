@@ -316,3 +316,70 @@ def read_conversations(
     )
 
     return rows[:limit]
+
+
+@router.get(
+    "/{conversation_id}",
+    response_model=ConversationOut,
+    summary="One conversation, for the chat screen's header",
+)
+def read_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ConversationOut:
+    """One conversation on its own.
+
+    WHY THIS EXISTS, since the list endpoint above already returns every
+    conversation with everything in it.
+
+    The chat screen has to show who you are talking to -- their name and photo
+    across the top. Opening /messages/12 directly, or refreshing the page while
+    reading, means the browser has nothing but the number in the address.
+
+    The two alternatives are both worse. Carrying the conversation over from the
+    inbox screen works right up until somebody refreshes or shares the link, and
+    then the header is blank. Fetching the whole inbox to pick one row out of it
+    means downloading fifty conversations to draw one.
+
+    THE PERMISSION CHECK IS NOT REPEATED HERE, and that is the point of
+    get_conversation_or_404 existing: it is the only way to get hold of a
+    conversation, so the check comes with it. A 404 for a conversation that is
+    not yours, indistinguishable from one that does not exist -- see that
+    function for why that matters.
+    """
+    conversation = get_conversation_or_404(db, conversation_id, current_user)
+
+    # The last message, for consistency with the list endpoint. The chat screen
+    # does not use it -- it loads the real messages separately -- but an
+    # endpoint whose reply changes shape depending on which one you called is a
+    # small cruelty to whoever writes the frontend.
+    last_message = db.scalars(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.id.desc())
+        .limit(1)
+    ).first()
+
+    unread_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(Message)
+            .where(
+                Message.conversation_id == conversation_id,
+                Message.sender_id != current_user.id,
+                Message.read_at.is_(None),
+            )
+        )
+        or 0
+    )
+
+    return ConversationOut(
+        id=conversation.id,
+        other_user=conversation.other_person(current_user),
+        last_message=(
+            ChatMessageOut.model_validate(last_message) if last_message else None
+        ),
+        unread_count=unread_count,
+        created_at=conversation.created_at,
+    )

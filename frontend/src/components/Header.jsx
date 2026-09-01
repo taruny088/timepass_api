@@ -1,4 +1,4 @@
-import { House, LogOut, Search, SquarePlus } from 'lucide-react'
+import { House, LogOut, Search, Send, SquarePlus } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import Logo from './Logo'
@@ -63,6 +63,20 @@ export default function Header() {
                 avatar={user}
               />
             </div>
+
+            {/* MESSAGES SITS HERE, NOT IN BottomNav, and that is deliberate.
+                The obvious move is a fifth item in the bottom bar. Instagram
+                does not do that -- their bottom bar has a fixed set, and direct
+                messages live at the TOP RIGHT of the home screen, in a corner
+                of their own.
+
+                Two reasons to copy that. It is what the Phase 11 comparison
+                spent a sitting matching, and a fifth item would squeeze four
+                comfortable thumb targets into five cramped ones at 375px.
+
+                Shown at every screen size, unlike the four navigation icons
+                above, because on a phone there is nowhere else for it to go. */}
+            <IconLink to="/messages" icon={Send} label="Messages" />
 
             {/* These two stay on every screen size. They are not navigation --
                 they act on the app itself -- so they do not belong in a bar of

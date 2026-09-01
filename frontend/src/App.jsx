@@ -1,11 +1,13 @@
 import { Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import ChangePassword from './pages/ChangePassword'
+import Chat from './pages/Chat'
 import CreatePost from './pages/CreatePost'
 import EditProfile from './pages/EditProfile'
 import ForgotPassword from './pages/ForgotPassword'
 import Home from './pages/Home'
 import Login from './pages/Login'
+import Messages from './pages/Messages'
 import NotFound from './pages/NotFound'
 import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
@@ -93,6 +95,26 @@ export default function App() {
         element={
           <ProtectedRoute>
             <ChangePassword />
+          </ProtectedRoute>
+        }
+      />
+      {/* The inbox, and one conversation. Both private -- there is nothing on
+          either that a stranger should reach, and the backend refuses them
+          anyway: every conversation endpoint answers 404 to somebody who is
+          not in it, which is the check that actually matters. */}
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <Messages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages/:conversationId"
+        element={
+          <ProtectedRoute>
+            <Chat />
           </ProtectedRoute>
         }
       />
