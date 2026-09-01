@@ -70,15 +70,28 @@ Things break in production that never break locally — missing settings, cold s
 
 Six phases, one optional. Each covers a complete area, so related work happens together instead of being spread across the plan.
 
-| Phase | Area | Size |
-|---|---|---|
-| 11 | The entire interface | Large — split into three sittings |
-| 12 | Photos and uploads | Medium |
-| 13 | Account and profile | Medium |
-| 14 | Finding things | Medium |
-| 15 | Activity and privacy | Medium |
-| 16 | Messaging | Large — split into three sittings |
-| 17 | Stories | Optional |
+| Phase | Area | Size | Status |
+|---|---|---|---|
+| 11 | The entire interface | Large — split into three sittings | done |
+| 12 | Photos and uploads | Medium | done |
+| 13 | Account and profile | Medium | done |
+| 15 | Activity and privacy | Medium | **next** |
+| 16 | Messaging | Large — split into three sittings | |
+| 14 | Finding things | Medium | moved to last — see below |
+| 17 | Stories | Optional | |
+
+**PHASE 14 WAS MOVED TO THE END, decided 1 September 2026.** The numbering is
+deliberately left alone, so everything already written about Phase 14 still
+refers to the same phase. Only the ORDER changed.
+
+Nothing depends on it, which is what makes this safe. Phase 15 needs likes,
+comments and follows; Phase 16 needs follows. Neither touches Explore, hashtags
+or saved posts, and no table Phase 14 would add is read by anything else.
+
+What it costs in the meantime: finding people still works — `search.py` has done
+user search since before Phase 11 — but it means typing a username rather than
+browsing. That makes Phases 15 and 16 fiddlier to DEMONSTRATE, since both want
+two accounts that follow each other. It does not make them harder to build.
 
 ---
 

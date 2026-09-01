@@ -1,8 +1,9 @@
 # How to work with me
 
-**Current work: Phase 11's side-by-side comparison — done, needs your eyes on a
-phone to confirm. Phase 13 done and live (forgot-password confirmed working on
-the live site). Next up: Phase 14 — finding things.**
+**Phases 11, 12 and 13 are done and live. Next up: PHASE 15 — activity and
+privacy. Phase 14 (finding things) was deliberately moved to the END on
+1 September 2026 — see the phase table in PLAN2.md. That is a decision, not
+drift: do not quietly put it back in order.**
 (Phases 11 and 12 done and tested live. Design system: `frontend/src/index.css`.
 Shared pieces: `frontend/src/components/ui/`. Alembic is set up with four
 migrations applied to the live database; `create_tables.py` must never be used to
