@@ -1,15 +1,35 @@
 # How to work with me
 
-**Current work: Phase 13 — Account and profile. All three steps built and tested
-locally. NOT closed: no real email has ever been delivered, so verification and
-password reset are unproven end to end. Needs RESEND_API_KEY set, and testing
-live on a phone.**
+**Current work: Phase 13 — Account and profile. All three steps built, pushed, and
+working locally including real email delivery. Remaining to close it: test on the
+live Render address, including on a phone.**
 (Phases 11 and 12 done and tested live. Design system: `frontend/src/index.css`.
 Shared pieces: `frontend/src/components/ui/`. Alembic is set up with four
 migrations applied to the live database; `create_tables.py` must never be used to
 change an existing table. Photos live on Cloudinary, `public_id` stored so they
 can be deleted. Still owed: two small changes, and the Instagram side-by-side
 comparison that formally closes Phase 11.)
+
+**Email, decided 1 September 2026 — do not re-litigate this by accident.**
+No domain is owned, and that is a deliberate choice, not an oversight. Resend's
+shared test sender only delivers to `taruny088@gmail.com`, the address the Resend
+account is registered to. Mail to anybody else is accepted by the API, reported
+as sent, and silently dropped — so a second person can never receive a
+verification or password-reset email.
+
+Sending "from taruny088@gmail.com" through Resend is impossible, and no provider
+would allow it: authorising a sender means adding DNS records to the domain, and
+Google owns gmail.com. The two real fixes, if this is ever revisited, are buying
+a domain (no code changes at all — verify it with Resend and set `EMAIL_FROM`) or
+sending through Gmail's own SMTP with an App Password (free, needs a new sender
+using the standard library's `smtplib` in place of the Resend call).
+
+Verification and reset use a clickable LINK, not a typed OTP. Also considered and
+declined. The `email_tokens` table supports either; only the pages and wording
+would change.
+
+No email is ever sent for likes, comments or follow requests. Phase 15's
+notifications are the in-app bell and list only.
 (Keep this line up to date. It is the first thing to read at the start of a session.)
 
 ## My situation
