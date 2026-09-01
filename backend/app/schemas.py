@@ -129,6 +129,58 @@ class UserLogin(BaseModel):
         return value.lower()
 
 
+class UserUpdate(BaseModel):
+    """What someone may send to PATCH /users/me to edit their own profile.
+
+    THE IMPORTANT THING ABOUT THIS CLASS IS WHAT IS MISSING.
+
+    There is no username, no email, no password and no avatar_url. A schema is
+    not just a description of good data -- it is the list of what the outside
+    world is ALLOWED to change through this door. Anything absent here cannot
+    be edited by this endpoint no matter what the browser sends, because
+    Pydantic drops unknown fields before our code ever sees them.
+
+    So a request saying {"bio": "hi", "password_hash": "..."} changes the bio
+    and silently ignores the rest. That is the safe way round.
+
+    Every field is optional, which is what makes this a PATCH rather than a
+    PUT. PUT means "here is the whole record, replace it" -- anything left out
+    gets wiped. PATCH means "here are the bits I changed, leave the rest
+    alone". If the edit page only sends a bio, a PUT would blank the name.
+
+    Optional alone is not enough to make that work, though. "full_name": null
+    and leaving full_name out entirely both arrive here as None, and they mean
+    opposite things -- "clear my name" and "do not touch my name". The
+    endpoint tells them apart with exclude_unset, which is explained there.
+    """
+
+    # max_length matches String(100) on the User model. Two places to keep in
+    # step, but they fail very differently: this one produces a polite message
+    # about the limit, while the database one produces a 500 error. We want
+    # the polite one to happen first.
+    full_name: str | None = Field(default=None, max_length=100)
+
+    bio: str | None = Field(default=None, max_length=200)
+
+    @field_validator("full_name", "bio")
+    @classmethod
+    def blank_means_empty(cls, value: str | None) -> str | None:
+        """Trim surrounding spaces, and treat an all-spaces value as nothing.
+
+        One validator for both fields -- field_validator accepts several names.
+
+        Why this matters: a text box the user cleared out sends "", and a text
+        box they typed three spaces into sends "   ". Neither is a bio. Storing
+        them as-is gives a profile with an invisible bio that still takes up
+        space on the page and still counts as "having" one. Turning both into
+        None means the profile page's "no bio yet" case works properly.
+        """
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+
 class UserOut(BaseModel):
     """What a user looks like when we send one back.
 

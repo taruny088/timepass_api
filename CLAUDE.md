@@ -1,6 +1,6 @@
 # How to work with me
 
-**Current work: Phase 13 — Account and profile. Not started.**
+**Current work: Phase 13 — Account and profile. Step 1 of 3 done (edit profile).**
 (Phases 11 and 12 done and tested live. Design system: `frontend/src/index.css`.
 Shared pieces: `frontend/src/components/ui/`. Alembic is set up with three
 migrations applied to the live database; `create_tables.py` must never be used to

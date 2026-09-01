@@ -25,7 +25,7 @@ from app.deps import get_current_user
 from app.media import delete_image, upload_image
 from app.models import Follow, Post, User
 from app.post_view import build_post_list
-from app.schemas import PostOut, UserOut, UserProfile, UserSummary
+from app.schemas import PostOut, UserOut, UserProfile, UserSummary, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -380,5 +380,71 @@ async def upload_avatar(
     # the thing that must be right. A leftover file is untidy; a user row
     # pointing at a photo that has just been deleted is a broken profile.
     delete_image(old_public_id)
+
+    return current_user
+
+
+@router.patch(
+    "/me",
+    response_model=UserOut,
+    summary="Edit your own display name and bio",
+)
+def update_me(
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Change part of the logged-in user's own profile.
+
+    Same address shape as /me/avatar above, and for the same reason: "me"
+    means "whoever this token belongs to". There is no way to name a user
+    here, so this endpoint CANNOT be pointed at somebody else's account. An
+    endpoint that cannot express the wrong user is safer than one that
+    remembers to check.
+
+    PATCH, not PUT. Both words tell the server what kind of change is coming.
+    PUT means "replace the whole record with this" -- anything left out gets
+    wiped. PATCH means "change only what I sent". Since the edit page may well
+    send just a bio, PUT would quietly blank the display name, so PATCH is the
+    honest description of what is happening here.
+
+    A note on the route table: FastAPI matches routes in the order they are
+    written, and this file already has GET /users/{username} above. If this
+    were a GET, /users/me would be swallowed by that one and read as a request
+    for a user literally named "me". It is a PATCH and nothing else in this
+    file is, so there is no clash -- but that is luck rather than design, and
+    it is the trap to remember if a /me/... GET is ever added here.
+    """
+    # THIS LINE IS THE WHOLE POINT OF THE ENDPOINT.
+    #
+    # model_dump turns the validated payload back into a plain dictionary.
+    # exclude_unset=True leaves out every field the browser did not actually
+    # include in the request.
+    #
+    # That is what separates the two cases the schema could not:
+    #
+    #   sent nothing at all      -> "bio" is NOT a key here -> leave it alone
+    #   sent "bio": null or ""   -> "bio" IS a key, worth None -> clear it
+    #
+    # Without exclude_unset both arrive as None and every edit would wipe
+    # every field the form happened not to mention. It is a quiet, total data
+    # loss bug, and this one argument is the entire defence against it.
+    changes = payload.model_dump(exclude_unset=True)
+
+    # Written out one field at a time on purpose. A loop over the dictionary
+    # would be shorter, but it would also happily write ANY key that turned up
+    # in it straight onto the user row. Naming the two editable fields here
+    # means this endpoint can never be talked into changing a third one.
+    if "full_name" in changes:
+        current_user.full_name = changes["full_name"]
+
+    if "bio" in changes:
+        current_user.bio = changes["bio"]
+
+    # current_user is a live database row, not a copy. SQLAlchemy has been
+    # watching the two assignments above, so commit writes exactly those
+    # columns and nothing else. There is no UPDATE statement to write.
+    db.commit()
+    db.refresh(current_user)
 
     return current_user

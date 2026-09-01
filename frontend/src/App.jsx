@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import CreatePost from './pages/CreatePost'
+import EditProfile from './pages/EditProfile'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
@@ -44,6 +45,21 @@ export default function App() {
         element={
           <ProtectedRoute>
             <CreatePost />
+          </ProtectedRoute>
+        }
+      />
+      {/* Phase 13. Above /profile/:username on purpose.
+
+          Routes are matched in order, and this one is a fixed address while
+          that one is a pattern. They do not actually collide -- "/accounts/edit"
+          has two segments and "/profile/:username" has two but a different
+          first word -- but keeping the specific address above the pattern is
+          the habit that stops a real collision later. */}
+      <Route
+        path="/accounts/edit"
+        element={
+          <ProtectedRoute>
+            <EditProfile />
           </ProtectedRoute>
         }
       />
