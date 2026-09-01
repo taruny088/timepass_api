@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, get_verified_user
 from app.media import delete_image, upload_image
 from app.models import Follow, Post, User
 from app.post_view import build_post_list
@@ -173,7 +173,17 @@ def read_user_posts(
 def follow_user(
     username: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # Phase 13: get_verified_user, not get_current_user.
+    #
+    # Same token check as before, plus an insistence that the email address on
+    # the account has been confirmed. PLAN2.md names exactly three things an
+    # unverified account may not do -- post, comment and follow -- and this is
+    # one of them.
+    #
+    # It is a DEPENDENCY rather than an `if` inside the function on purpose:
+    # the gate runs before this code does, so there is no path through the
+    # endpoint that skips it.
+    current_user: User = Depends(get_verified_user),
 ) -> None:
     """Start following someone.
 

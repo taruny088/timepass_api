@@ -186,7 +186,7 @@ class UserOut(BaseModel):
 
     THIS IS THE IMPORTANT ONE. password_hash is not listed, so it cannot be
     sent to a browser. Endpoints declare response_model=UserOut, which tells
-    FastAPI to build the reply from these seven fields and throw away
+    FastAPI to build the reply from these eight fields and throw away
     everything else -- even if the endpoint hands back the whole database row
     by mistake.
 
@@ -200,6 +200,24 @@ class UserOut(BaseModel):
     bio: str | None
     avatar_url: str | None
     created_at: datetime
+
+    # Has this person confirmed their email address?
+    #
+    # Read straight off the User model's is_verified PROPERTY, not off a
+    # column -- from_attributes below lets Pydantic take a value from any
+    # attribute, and a property is an attribute.
+    #
+    # THIS IS IN UserOut AND DELIBERATELY NOT IN UserProfile. UserOut is your
+    # own account and is only ever sent to you; UserProfile is what anybody can
+    # see about anybody. Whether a stranger has confirmed their address is none
+    # of your business, and publishing it would quietly mark out the newest and
+    # least established accounts on the site.
+    #
+    # The frontend uses it for exactly one thing: whether to draw the "confirm
+    # your email" banner. It enforces nothing -- the backend re-checks on every
+    # request that matters, because anything sent to a browser can be edited
+    # there.
+    is_verified: bool
 
     # By default Pydantic expects a dictionary. from_attributes=True lets it
     # read a normal Python object instead, taking user.id, user.username and
@@ -249,6 +267,42 @@ class UserSummary(BaseModel):
     avatar_url: str | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MessageOut(BaseModel):
+    """A plain sentence for the user, and nothing else.
+
+    Used by the endpoints that do something rather than return something --
+    confirming an address, asking for a new link. They have no object to hand
+    back, and an empty reply leaves the frontend with nothing to display.
+
+    Deliberately vague by design in some places. The password reset endpoint in
+    step 3 will return the SAME message whether or not the email exists, so
+    this class must never grow a field like "found" or "sent" -- that would put
+    the answer back on the wire in a different shape.
+    """
+
+    detail: str
+
+
+class VerifyEmailRequest(BaseModel):
+    """The code from a confirmation link, sent back to be checked.
+
+    A POST with the code in the BODY, not a GET with it in the address, and the
+    reason is not tidiness.
+
+    Mail apps, antivirus tools and corporate scanners quietly open links to
+    check them for malware, before any human sees the message. Anything that
+    happens on a GET can therefore happen without a person -- so a link that
+    confirmed the address by being fetched would be spent by the scanner, and
+    the real user would arrive to find their new link already used.
+
+    So the emailed link opens a PAGE, and the page sends this. It also keeps
+    the code out of the browser history and out of any server log that records
+    addresses, which is where secrets in web addresses tend to end up.
+    """
+
+    token: str = Field(..., min_length=1, max_length=200)
 
 
 class UserProfile(BaseModel):

@@ -22,7 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import auth, comments, feed, likes, posts, search, users
+from app import account, auth, comments, feed, likes, posts, search, users
 from app.database import get_db
 
 app = FastAPI(title="Timepass API")
@@ -136,6 +136,7 @@ app.add_middleware(
 # Plugs each feature's endpoints into the app. Without these lines the
 # endpoints exist as Python code but the app does not serve them.
 app.include_router(auth.router)    # /auth/signup, /auth/login, /auth/me
+app.include_router(account.router)  # /auth/verify-email, /auth/resend-verification
 app.include_router(posts.router)   # /posts
 app.include_router(users.router)   # /users/{username}
 app.include_router(feed.router)    # /feed

@@ -120,6 +120,25 @@ class User(Base):
     # Nullable, because most users have no avatar at all yet.
     avatar_public_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # When this person proved they own the email address on the account, or
+    # NULL if they never have.
+    #
+    # WHY A TIMESTAMP AND NOT A TRUE/FALSE.
+    #
+    # is_verified would answer "are they verified". This answers that AND
+    # "since when", for the same price -- NULL means no, anything else means
+    # yes. The moment costs nothing to store and is the sort of thing you very
+    # much want when something looks wrong later.
+    #
+    # Every account that existed before this column did is filled in by the
+    # migration. They signed up when there was no verification to do, and
+    # locking six real accounts out of posting because the rules changed
+    # underneath them would be punishing them for our timing.
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     # The exact moment the account was created.
     #
     # timezone=True stores an absolute point in time rather than a wall-clock
@@ -157,6 +176,23 @@ class User(Base):
         back_populates="author",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def is_verified(self) -> bool:
+        """Has this person confirmed their email address?
+
+        A PROPERTY is a method that is read like a plain value: write
+        user.is_verified, not user.is_verified(). Nothing is stored for it --
+        it is worked out from email_verified_at every time it is read, so it
+        can never drift out of step with the column the way a second stored
+        field would.
+
+        It exists so that the rest of the app never has to spell out
+        `user.email_verified_at is not None`. Written out in five places, that
+        phrase eventually gets typed as `is None` in one of them, and the bug
+        is a permission check that lets exactly the wrong people through.
+        """
+        return self.email_verified_at is not None
 
     def __repr__(self) -> str:
         """How one User prints when debugging. Note that it deliberately does
@@ -605,3 +641,116 @@ class PostMedia(Base):
 
     def __repr__(self) -> str:
         return f"<PostMedia post={self.post_id} position={self.position}>"
+
+
+class EmailToken(Base):
+    """One single-use code sent to somebody by email.
+
+    WHY ONE TABLE FOR TWO DIFFERENT JOBS.
+
+    Confirming an email address and resetting a password look like separate
+    features, and they are not. Both do exactly the same four things: make a
+    long random code, email it, check it came back unspoilt, and retire it.
+    The only difference is what happens after the check succeeds.
+
+    So one table with a `purpose` column, rather than two tables whose rules
+    would have to be kept in step by hand. Every rule below -- hashed, expires,
+    used once -- is written down once and applies to both.
+
+    THE THREE RULES THAT MAKE THIS SAFE, AND WHY EACH IS NEEDED.
+
+      Stored hashed    A stolen copy of this table must not hand the thief
+                       working reset links for every account in it.
+
+      Expires          A link found in an inbox next year must be dead.
+
+      Used once        A link that has already done its job must be dead too,
+                       so a forwarded or leaked email is worthless.
+
+    They cover different attacks and none of them substitutes for another.
+    Expiry alone leaves a link live for an hour to anyone who can see the
+    inbox. Single use alone leaves an unused link working forever.
+    """
+
+    __tablename__ = "email_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Whose account this code is for.
+    #
+    # ondelete="CASCADE": delete the user and their outstanding codes go with
+    # them. Leaving them behind would mean a live reset code pointing at an
+    # account that no longer exists.
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # "verify_email" or "password_reset".
+    #
+    # This is checked when a code is redeemed, and that check is doing real
+    # work. Without it a verification link -- which is emailed to an address we
+    # have NOT yet proved belongs to anyone -- could be handed to the password
+    # reset endpoint instead. The two codes look identical; only this column
+    # says which door each one opens.
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    # The code, scrambled. THE REAL CODE IS NEVER STORED ANYWHERE.
+    #
+    # It exists twice for a few seconds -- in memory here, and in the email we
+    # send -- and after that only the person holding the email has it. That is
+    # the same arrangement as a password.
+    #
+    # SHA-256 rather than bcrypt, which is the one place this deliberately
+    # differs from how passwords are stored, for two reasons:
+    #
+    #   A password is short and human-chosen, so it can be guessed, and bcrypt
+    #   being slow is what makes guessing impractical. This code is 32 random
+    #   bytes. Nobody guesses it in the lifetime of the sun, so slowness buys
+    #   nothing.
+    #
+    #   bcrypt salts every hash differently, so the same input hashes to a
+    #   different value each time. That is exactly right for passwords and
+    #   useless here: we would have no way to LOOK THE CODE UP, and would have
+    #   to test the incoming code against every row in the table.
+    #
+    # unique=True because a repeat means our random source has failed, and it
+    # is better to find that out as a loud error than to have two accounts
+    # sharing a code. 64 characters is what SHA-256 is in hexadecimal.
+    #
+    # index=True because every redemption is a lookup by this column, and this
+    # is the only way to find a row.
+    token_hash: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+
+    # After this moment the code is refused. Set when the code is made.
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    # NULL until the code is redeemed, then the moment it was.
+    #
+    # A timestamp rather than a used=True flag, for the same reason as
+    # email_verified_at above: it answers "was it used" and "when" together.
+    #
+    # The row is stamped rather than deleted. A deleted row cannot tell you
+    # whether a code was already used or never existed, and those two want
+    # different explanations when someone says their link did not work.
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        """Note what is missing: token_hash. Even the scrambled form has no
+        business appearing in a log file or a terminal by accident."""
+        return (
+            f"<EmailToken id={self.id} user_id={self.user_id} "
+            f"purpose={self.purpose!r} used={self.used_at is not None}>"
+        )

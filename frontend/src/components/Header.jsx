@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import Logo from './Logo'
 import ThemeToggle from './ThemeToggle'
+import VerifyBanner from './VerifyBanner'
 import Avatar from './ui/Avatar'
 
 // The bar across the top of every logged-in page.
@@ -31,48 +32,66 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-line bg-surface">
-      <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-        {/* The symbol, and no name beside it. Instagram does the same, and it
-            is not decoration: dropping the word buys back width a phone screen
-            does not have. The symbol still says the app's name to a screen
-            reader, through the aria-label inside Logo. */}
-        <Link to="/">
-          <Logo className="h-8 w-8" />
-        </Link>
+    // A FRAGMENT -- <>...</> -- because this component now returns two things
+    // side by side, and a component may only return one. A fragment groups
+    // them without adding a real <div> to the page, which would otherwise sit
+    // between the header and the content and interfere with the sticky
+    // positioning below.
+    <>
+      <header className="sticky top-0 z-10 border-b border-line bg-surface">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+          {/* The symbol, and no name beside it. Instagram does the same, and it
+              is not decoration: dropping the word buys back width a phone screen
+              does not have. The symbol still says the app's name to a screen
+              reader, through the aria-label inside Logo. */}
+          <Link to="/">
+            <Logo className="h-8 w-8" />
+          </Link>
 
-        <nav className="flex items-center gap-1" aria-label="Main">
-          {/* hidden on a phone, shown from md: up.
-              These four are exactly what BottomNav carries, which is why they
-              are hidden here -- showing both would be the same navigation
-              twice on the same screen. */}
-          <div className="hidden items-center gap-1 md:flex">
-            <IconLink to="/" icon={House} label="Home" end />
-            <IconLink to="/search" icon={Search} label="Search" />
-            <IconLink to="/create" icon={SquarePlus} label="New post" />
-            <IconLink
-              to={`/profile/${user.username}`}
-              label="My profile"
-              avatar={user}
-            />
-          </div>
+          <nav className="flex items-center gap-1" aria-label="Main">
+            {/* hidden on a phone, shown from md: up.
+                These four are exactly what BottomNav carries, which is why they
+                are hidden here -- showing both would be the same navigation
+                twice on the same screen. */}
+            <div className="hidden items-center gap-1 md:flex">
+              <IconLink to="/" icon={House} label="Home" end />
+              <IconLink to="/search" icon={Search} label="Search" />
+              <IconLink to="/create" icon={SquarePlus} label="New post" />
+              <IconLink
+                to={`/profile/${user.username}`}
+                label="My profile"
+                avatar={user}
+              />
+            </div>
 
-          {/* These two stay on every screen size. They are not navigation --
-              they act on the app itself -- so they do not belong in a bar of
-              places you can go. */}
-          <ThemeToggle />
+            {/* These two stay on every screen size. They are not navigation --
+                they act on the app itself -- so they do not belong in a bar of
+                places you can go. */}
+            <ThemeToggle />
 
-          <button
-            onClick={handleLogout}
-            aria-label="Log out"
-            title="Log out"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-ink-muted transition active:scale-90 hover:bg-hover hover:text-ink"
-          >
-            <LogOut className="h-6 w-6" aria-hidden="true" />
-          </button>
-        </nav>
-      </div>
-    </header>
+            <button
+              onClick={handleLogout}
+              aria-label="Log out"
+              title="Log out"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-control text-ink-muted transition active:scale-90 hover:bg-hover hover:text-ink"
+            >
+              <LogOut className="h-6 w-6" aria-hidden="true" />
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      {/* Under the bar rather than inside it, so it scrolls away with the
+          page. Inside the sticky header it would hold a strip of every screen
+          hostage on a phone, permanently, on every page.
+
+          It lives in Header because Header is already on every logged-in page.
+          Adding it to each page by hand would mean the one page somebody
+          forgets is the page where an unverified user never learns why posting
+          does not work. VerifyBanner draws nothing at all when the address is
+          confirmed. */}
+      <VerifyBanner />
+    </>
   )
 }
 

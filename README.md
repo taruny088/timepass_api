@@ -327,12 +327,48 @@ environment variable set this way takes precedence over `.env`, because
 Skip this step and the backend starts fine but every request fails with
 `relation "users" does not exist`.
 
+### 2b. Apply the migrations
+
+**This section was written before Alembic existed (Phase 12) and used to stop
+at the step above.** `create_tables.py` creates missing tables and **silently
+does nothing** about changes to tables that already exist — no error, no
+warning — so on its own it leaves the live database quietly disagreeing with
+the code.
+
+Every change to an existing table since Phase 12 is an Alembic migration, and
+they have to be applied:
+
+```powershell
+# Windows PowerShell, from the backend folder, venv active
+$env:DATABASE_URL="postgresql+psycopg://user:pass@host/dbname"; alembic upgrade head; Remove-Item Env:DATABASE_URL
+```
+```bash
+# macOS / Linux
+DATABASE_URL="postgresql+psycopg://user:pass@host/dbname" alembic upgrade head
+```
+
+The **External** URL again, since this runs from your own machine.
+
+**Do this BEFORE the new backend code deploys, not after.** The order is what
+matters, and getting it wrong takes the live site down rather than merely
+delaying a feature: code that reads a column the database does not have yet
+fails on every request that touches that table. Every migration in this project
+so far only *adds* things, so applying it early is harmless — the old code
+simply ignores the new column and carries on.
+
+Two ways to arrange that, and the second is better:
+
+| Approach | What happens |
+|---|---|
+| Run the command above, then push | Fine, but relies on remembering, every time |
+| Add it to the build | Render's Build Command becomes `pip install -r requirements.txt && alembic upgrade head`, and the migration runs as part of every deploy, before the new code serves a single request |
+
 ### 3. Backend — Web Service
 
 | Setting | Value |
 |---|---|
 | Root Directory | `backend` |
-| Build Command | `pip install -r requirements.txt` |
+| Build Command | `pip install -r requirements.txt && alembic upgrade head` |
 | Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 
 - `--host 0.0.0.0` accepts connections from outside the machine. The default
@@ -349,6 +385,23 @@ Environment variables:
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` |
 | `FRONTEND_ORIGIN` | set in step 5 |
 | `PYTHON_VERSION` | `3.12` |
+| `RESEND_API_KEY` | from the Resend dashboard — a real secret |
+| `EMAIL_FROM` | leave unset unless you own a verified domain |
+| `APP_URL` | `https://<your-site>.onrender.com` — the **site**, not the API |
+
+`APP_URL` is the one that is easy to get wrong and fails silently. Every
+confirmation and password-reset link is built from it. Left unset in
+production it falls back to `http://localhost:5173`, so the emails still send,
+still look right, and every link in them points at the recipient's own
+computer.
+
+It is deliberately separate from `FRONTEND_ORIGIN`: that one is a *list* of
+origins CORS should trust and usually begins with `localhost`, so reusing it
+would email everyone a link to their own machine.
+
+With `RESEND_API_KEY` unset the app does not crash — it prints each email to
+the server log instead. Useful locally, useless in production, and easy to miss
+because nothing looks broken.
 
 Check it with `https://<your-api>.onrender.com/health`, which should report
 `{"status": "ok", "database": "connected"}` — proving the server is up *and*

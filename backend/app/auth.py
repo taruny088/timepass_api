@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.account import send_verification_email
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import User
@@ -104,8 +105,25 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)) -> User:
     # those values are present in the reply.
     db.refresh(user)
 
+    # Phase 13. The account exists; now prove the address is real.
+    #
+    # AFTER the commit, deliberately. The email carries a code that points at a
+    # row in the database, so the row has to be there first -- and if this were
+    # done before, a failure here would abandon a half-created account.
+    #
+    # send_email never raises (see mailer.py), so an outage at Resend cannot
+    # turn a successful signup into a 500. That is the important ordering
+    # decision in this function: a failed send is recoverable with the resend
+    # button, a failed signup is not -- the person tries again and is told the
+    # username is taken, by themselves.
+    #
+    # With no RESEND_API_KEY set, the link is printed to the terminal running
+    # this server instead. That is what makes the whole flow testable on a
+    # laptop with no email account involved.
+    send_verification_email(db, user)
+
     # We return the whole User object, password_hash and all. It is safe
-    # because response_model=UserOut above rebuilds the reply from the seven
+    # because response_model=UserOut above rebuilds the reply from the eight
     # listed fields and discards the rest.
     return user
 

@@ -9,6 +9,7 @@ import PostDetail from './pages/PostDetail'
 import Profile from './pages/Profile'
 import Search from './pages/Search'
 import Signup from './pages/Signup'
+import VerifyEmail from './pages/VerifyEmail'
 
 // The route table: which address shows which page.
 //
@@ -24,6 +25,15 @@ export default function App() {
       {/* Anyone can reach these two. */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+
+      {/* PUBLIC, and that is the whole point of it. This is where the link in
+          a confirmation email lands, and it is very often opened on a phone
+          that has never logged in. Wrapping it in ProtectedRoute would bounce
+          exactly the people it exists for to the login page.
+
+          It is safe to leave open because the code in the address IS the
+          proof -- it went to that one inbox and nowhere else. */}
+      <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Wrapping the element in ProtectedRoute is what makes it private. */}
       <Route

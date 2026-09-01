@@ -89,3 +89,51 @@ def get_current_user(
         raise CREDENTIALS_ERROR
 
     return user
+
+
+# Phase 13. The second gate.
+#
+# get_current_user answers "who is asking?". This answers "may they do this?",
+# and they are genuinely different questions -- somebody can be perfectly,
+# provably logged in and still not allowed to post.
+VERIFICATION_ERROR = HTTPException(
+    status_code=status.HTTP_403_FORBIDDEN,
+    detail="Confirm your email address before doing this.",
+)
+
+
+def get_verified_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Like get_current_user, but also insists the email has been confirmed.
+
+    WHY 403 AND NOT 401. 401 means "I do not know who you are" -- send a token
+    and try again. 403 means "I know exactly who you are, and the answer is
+    still no". Sending 401 here would make every client assume the login had
+    expired and bounce a perfectly valid user to the login page, where logging
+    in again would change nothing at all.
+
+    NOTE THAT THIS DEPENDS ON ANOTHER DEPENDENCY. FastAPI works out the whole
+    chain: it runs get_current_user first, hands the result in here, and only
+    then runs the endpoint. So an endpoint asking for a verified user gets the
+    token check for free and cannot accidentally get one without the other.
+
+    WHAT UNVERIFIED MEANS IN THIS APP, per PLAN2.md: you may log in and look
+    around, but not post, comment or follow. Blocking login outright is harsher
+    than Instagram and makes the app painful to demonstrate -- and someone who
+    cannot get in cannot press "resend" either.
+
+    Liking is deliberately NOT gated. PLAN2 names three actions and this is the
+    list it names. Inventing a fourth would be building something nobody asked
+    for, and a like is the least consequential thing on the site.
+
+    THE POINT OF PUTTING THIS HERE. The banner in the interface is a courtesy,
+    not a lock -- anything running in a browser can be switched off by whoever
+    is running the browser. This function is the actual rule, it runs on the
+    server, and every endpoint that needs it gets it by asking for this
+    dependency instead of remembering to write a check.
+    """
+    if not current_user.is_verified:
+        raise VERIFICATION_ERROR
+
+    return current_user

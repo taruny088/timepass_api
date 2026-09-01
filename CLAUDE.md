@@ -1,8 +1,8 @@
 # How to work with me
 
-**Current work: Phase 13 — Account and profile. Step 1 of 3 done (edit profile).**
+**Current work: Phase 13 — Account and profile. Steps 1 and 2 of 3 done (edit profile; email verification). Step 3 is passwords.**
 (Phases 11 and 12 done and tested live. Design system: `frontend/src/index.css`.
-Shared pieces: `frontend/src/components/ui/`. Alembic is set up with three
+Shared pieces: `frontend/src/components/ui/`. Alembic is set up with four
 migrations applied to the live database; `create_tables.py` must never be used to
 change an existing table. Photos live on Cloudinary, `public_id` stored so they
 can be deleted. Still owed: two small changes, and the Instagram side-by-side
