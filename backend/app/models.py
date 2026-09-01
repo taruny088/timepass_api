@@ -754,3 +754,222 @@ class EmailToken(Base):
             f"<EmailToken id={self.id} user_id={self.user_id} "
             f"purpose={self.purpose!r} used={self.used_at is not None}>"
         )
+
+
+class Conversation(Base):
+    """One thread between exactly two people.
+
+    THE WHOLE DIFFICULTY OF THIS TABLE IS IN TWO COLUMNS, so it is worth going
+    slowly.
+
+    A conversation is between two people, so the obvious shape is two columns
+    pointing at users -- and that is right. The trap is what happens next.
+
+    You message me, and the app creates a row (you, me). A minute later I
+    message you, the app looks for a row (me, you), does not find one, and
+    creates a second thread. Now the same two people have two conversations.
+    Your half is in one and mine is in the other, neither of us sees the whole
+    thing, and NOTHING LOOKS BROKEN -- it just quietly loses half the chat.
+
+    The cause is that (you, me) and (me, you) are different to a database and
+    the same to a person.
+
+    THE FIX: always store the pair in the same order. The smaller user id goes
+    in user_a_id, the larger in user_b_id, whoever actually started the chat.
+    Then the pair becomes one comparable thing and can be looked up reliably.
+
+    That rule is worth nothing unless something enforces it, which is what the
+    two rules in __table_args__ below are for.
+
+    WHAT THIS SHAPE GIVES UP: group chats. Two columns can hold two people and
+    no more. Supporting groups would mean a different design -- a separate
+    table listing who is in each conversation -- and PLAN2.md asks for two
+    people, so this is the simpler shape rather than one built for a feature
+    nobody asked for.
+
+    WHAT IT LEAVES ROOM FOR: message requests. Right now anybody may message
+    anybody, decided deliberately in place of PLAN2's "two people who follow
+    each other". If that ever needs tightening -- a stranger's first message
+    landing in a requests folder rather than the inbox, which is what Instagram
+    does -- that is one extra column here and a filter on the list screen. No
+    table has to be rebuilt.
+    """
+
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # ALWAYS the smaller of the two user ids. See the class docstring.
+    #
+    # ondelete="CASCADE": delete a user and their conversations go too, taking
+    # the messages with them. The alternative -- keeping a thread that points
+    # at an account that no longer exists -- is a screen that cannot be drawn.
+    user_a_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # ALWAYS the larger.
+    user_b_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # Every message in this thread.
+    #
+    # cascade="all, delete-orphan" is the Python-side twin of the ON DELETE
+    # CASCADE on messages.conversation_id: delete a Conversation through
+    # SQLAlchemy and its messages go, exactly as they would if the row were
+    # deleted by raw SQL.
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+    )
+
+    # The two people, so a conversation can be drawn without a second lookup.
+    #
+    # A RELATIONSHIP IS NOT A COLUMN. Nothing is stored for these and no
+    # migration is needed -- they are a convenience SQLAlchemy provides, which
+    # runs "SELECT * FROM users WHERE id = ..." when you read them.
+    #
+    # No back_populates, deliberately. That would give User a .conversations
+    # list, and nothing wants one: every screen starts from a conversation and
+    # asks who is in it, never the other way round. An unused relationship is
+    # an invitation to load something large by accident.
+    user_a: Mapped["User"] = relationship(foreign_keys=[user_a_id])
+    user_b: Mapped["User"] = relationship(foreign_keys=[user_b_id])
+
+    def other_person(self, me: "User") -> "User":
+        """The one of the two who is NOT you.
+
+        Every chat screen needs this -- the list shows who you are talking to,
+        not your own name -- and working it out at each call site means the same
+        comparison written five times, with the fifth one eventually inverted.
+
+        The caller is responsible for only asking about a conversation they are
+        actually in. Every endpoint checks that first, because it is the rule
+        that matters most in this phase.
+        """
+        return self.user_b if self.user_a_id == me.id else self.user_a
+
+    __table_args__ = (
+        # RULE ONE: this pair may only exist once.
+        #
+        # The endpoint will ALSO look before creating, and that is not enough on
+        # its own. Two people can open a chat with each other at the same
+        # instant, both look, both find nothing, and both create a row. Only a
+        # rule inside PostgreSQL refuses the second one.
+        #
+        # The same lesson as the duplicate username in Phase 3: a check in
+        # Python happens at one moment, a constraint holds at every moment.
+        UniqueConstraint("user_a_id", "user_b_id", name="uq_conversations_pair"),
+
+        # RULE TWO: the smaller id really is in user_a_id.
+        #
+        # This is what makes rule one mean anything. Without it, (3, 7) and
+        # (7, 3) are two different pairs as far as the unique rule is concerned,
+        # and both would be allowed -- which is the exact bug we are preventing.
+        #
+        # Note it is "<" and not "<>", and that one character is doing a second
+        # job: equal fails the test, so a conversation with YOURSELF cannot
+        # exist either. Two rules for the price of one.
+        #
+        # In the database rather than only in the endpoint, for the same reason
+        # follows has ck_follows_no_self_follow: it then holds however the row
+        # arrives, including a row typed by hand in psql or written by a future
+        # bug of ours.
+        CheckConstraint(
+            "user_a_id < user_b_id",
+            name="ck_conversations_ordered_pair",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Conversation id={self.id} "
+            f"between={self.user_a_id} and={self.user_b_id}>"
+        )
+
+
+class Message(Base):
+    """One message inside one conversation."""
+
+    __tablename__ = "messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # Which of the two people wrote it.
+    #
+    # Deliberately NOT worked out from the conversation. Both people write into
+    # the same thread, so the thread cannot say who wrote any particular line --
+    # only the message itself knows.
+    sender_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # 2000 characters. Instagram's own limit is around a thousand; this is
+    # generous without being unbounded. A column with no limit at all invites
+    # somebody to paste a novel into the database.
+    body: Mapped[str] = mapped_column(String(2000), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # NULL until the OTHER person has opened the conversation and read it.
+    #
+    # A timestamp rather than a read=True flag, the same choice as
+    # email_verified_at and used_at in Phase 13: it answers "was it read" and
+    # "when" for the same storage, and "when" is what a read receipt needs.
+    #
+    # The unread badge is built entirely from this column: count the messages
+    # in this thread that somebody else sent and that have no read_at.
+    read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+
+    # The author, for drawing the message. Not back_populates: a User does not
+    # need a .messages list, and asking for one would invite loading every
+    # message a person has ever sent in order to draw one chat.
+    sender: Mapped["User"] = relationship()
+
+    __table_args__ = (
+        # EVERY read of this table is "the messages in this thread, in order".
+        # There is no other question anybody asks of it.
+        #
+        # Without this index PostgreSQL reads every message in the whole app to
+        # find the twenty in one conversation, and it gets slower every day.
+        #
+        # Both columns, in this order, on purpose. conversation_id narrows it to
+        # one thread; id then gives them in the order they were written, since
+        # ids count upwards. So the database can walk straight to the right rows
+        # already sorted, instead of collecting them and sorting afterwards.
+        #
+        # It is also exactly what "give me the messages before number 412"
+        # needs, which is how the chat screen loads older messages -- see
+        # messages.py for why that is a cursor rather than a page number.
+        Index("ix_messages_conversation_id_id", "conversation_id", "id"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Message id={self.id} conversation={self.conversation_id} "
+            f"sender={self.sender_id}>"
+        )

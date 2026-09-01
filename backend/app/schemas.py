@@ -454,6 +454,110 @@ class UserProfile(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ConversationCreate(BaseModel):
+    """Who you want to talk to.
+
+    A USERNAME, NOT A USER ID. Ids are an internal detail: the browser knows
+    usernames, because that is what is in the address of every profile page.
+    Taking an id here would mean every screen had to look one up first.
+
+    Note what is NOT here: your own identity. That comes from the token, as it
+    does everywhere else. If the browser could name the sender, anyone could
+    start a conversation as somebody else.
+    """
+
+    username: str = Field(..., min_length=1, max_length=30, examples=["john_23"])
+
+    @field_validator("username")
+    @classmethod
+    def username_to_lowercase(cls, value: str) -> str:
+        """Usernames are stored lowercase since Phase 3, so a search for
+        "John_23" against a stored "john_23" would find nobody and wrongly
+        report that the user does not exist."""
+        return value.lower()
+
+
+class ChatMessageCreate(BaseModel):
+    """The text of one message.
+
+    NAMED ChatMessage RATHER THAN Message, and it is worth saying why rather
+    than leaving it to look like a clumsy name.
+
+    Phase 13 already has a MessageOut in this file, holding a single sentence
+    for the user -- "your password has been changed". That is a message in the
+    English sense. This is a message in the chat sense. Two different things
+    that want the same word, so the newer one takes the longer name rather than
+    renaming something that is working and referred to from three files.
+    """
+
+    # min_length=1 after stripping, so a message of pure spaces is refused. An
+    # empty bubble in a chat is a thing nobody can explain and nobody can
+    # delete.
+    body: str = Field(..., min_length=1, max_length=2000, examples=["hey"])
+
+    @field_validator("body")
+    @classmethod
+    def strip_and_require_content(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("A message cannot be empty.")
+        return cleaned
+
+
+class ChatMessageOut(BaseModel):
+    """One message, as the browser sees it."""
+
+    id: int
+
+    # Which thread it belongs to. The chat screen already knows, but the live
+    # connection in 16c does not: one socket carries messages for every
+    # conversation you are in, so each one has to say where it goes.
+    conversation_id: int
+
+    # WHO WROTE IT, as an id rather than a whole user object.
+    #
+    # The chat screen only needs to answer one question about the sender: was
+    # it me? That decides which side of the screen the bubble sits on. Sending
+    # the full user with every message would repeat the same name and avatar a
+    # hundred times down one screen.
+    sender_id: int
+
+    body: str
+    created_at: datetime
+
+    # NULL until the other person has opened the conversation. This is what a
+    # read receipt is drawn from, and what the unread badge counts.
+    read_at: datetime | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConversationOut(BaseModel):
+    """One row of the conversation list, and the header of a chat screen."""
+
+    id: int
+
+    # THE OTHER PERSON, never both. A conversation has two people in it and you
+    # are always one of them, so sending your own name back with every row
+    # would be repeating what the app already knows.
+    other_user: UserSummary
+
+    # The most recent message, for the preview line. None for a conversation
+    # that has just been created and has nothing in it yet -- which is a real
+    # state, not a bug: the endpoint that starts a chat does not send anything.
+    last_message: ChatMessageOut | None = None
+
+    # How many messages in this thread the OTHER person sent that you have not
+    # read. Counted with a query, never stored -- the same rule as follower
+    # counts in PLAN.md. A stored count drifts, and a badge showing a number
+    # that does not match what is inside is worse than no badge.
+    unread_count: int = 0
+
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PostCreate(BaseModel):
     """The text part of POST /posts.
 

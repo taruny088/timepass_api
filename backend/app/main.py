@@ -22,7 +22,18 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import account, auth, comments, feed, likes, posts, search, users
+from app import (
+    account,
+    auth,
+    comments,
+    conversations,
+    feed,
+    likes,
+    messages,
+    posts,
+    search,
+    users,
+)
 from app.database import get_db
 
 app = FastAPI(title="Timepass API")
@@ -143,6 +154,12 @@ app.include_router(feed.router)    # /feed
 app.include_router(likes.router)   # /posts/{id}/like
 app.include_router(comments.router)  # /posts/{id}/comments, /comments/{id}
 app.include_router(search.router)  # /search/users
+
+# Phase 16. Both use the /conversations prefix: a message only exists inside
+# a conversation, so its address lives under one. Two files because they are
+# two jobs -- the same split as posts.py and comments.py.
+app.include_router(conversations.router)  # /conversations
+app.include_router(messages.router)       # /conversations/{id}/messages
 
 
 @app.get("/health")

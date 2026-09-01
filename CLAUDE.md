@@ -1,9 +1,12 @@
 # How to work with me
 
-**Phases 11, 12 and 13 are done and live. Next up: PHASE 15 — activity and
-privacy. Phase 14 (finding things) was deliberately moved to the END on
-1 September 2026 — see the phase table in PLAN2.md. That is a decision, not
-drift: do not quietly put it back in order.**
+**Current work: PHASE 16 — messaging. Sitting 16a done (tables, migration,
+endpoints), tested locally, not yet pushed. Next: 16b, the screens.**
+(Phases 11, 12 and 13 are done and live. Phase 14 and Phase 15 were both moved
+after 16 — see the phase table in PLAN2.md. Those are decisions, not drift.
+ANYONE MAY MESSAGE ANYONE: PLAN2 said "two people who follow each other" and
+that was deliberately dropped. When Phase 15 adds private accounts, decide then
+whether a stranger's first message should land in a requests folder.)
 (Phases 11 and 12 done and tested live. Design system: `frontend/src/index.css`.
 Shared pieces: `frontend/src/components/ui/`. Alembic is set up with four
 migrations applied to the live database; `create_tables.py` must never be used to
