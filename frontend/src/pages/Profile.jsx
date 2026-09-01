@@ -183,132 +183,157 @@ export default function Profile() {
 
         {!loading && !error && profile && (
           <>
-            <Card as="section" className="flex items-center gap-4 p-4 sm:gap-6 sm:p-6">
-              {/* Your own photo is a button; everyone else's is just a
-                  picture. isMe decides which is drawn, and the backend decides
-                  for real -- /users/me/avatar can only ever change the account
-                  the token belongs to, so there is no way to aim it at someone
-                  else however the page is edited in a browser.
+            {/* THE PROFILE HEADER, REBUILT FROM THE PHASE 11 COMPARISON.
+             *
+             * What was here before put the username, the display name, the bio,
+             * the three counts AND the button all into one narrow column beside
+             * an 80px avatar. On a 375px phone that column is about 250px wide,
+             * so a bio of any length wrapped into a thin ragged strip.
+             *
+             * Instagram's phone layout is a different shape entirely, and the
+             * reason is the bio:
+             *
+             *     username
+             *     [avatar]   posts   followers   following
+             *     display name
+             *     bio                          <- the FULL width of the screen
+             *     [ Edit profile              ] <- full width too
+             *
+             * Only the three counts sit beside the picture. Everything made of
+             * sentences gets the whole width, because sentences need it.
+             */}
+            <Card as="section" className="p-4 sm:p-6">
+              <h1 className="text-h1 font-semibold break-words text-ink">
+                {profile.username}
+              </h1>
 
-                  Both the camera button and the upload now live in
-                  AvatarUpload, because the edit page needs exactly the same
-                  thing and two copies drift apart the moment either is
-                  touched. */}
-              {isMe ? (
-                <AvatarUpload
-                  src={profile.avatar_url}
-                  username={profile.username}
-                  size="lg"
-                  onError={setError}
-                  // This page holds its own copy of the profile, separate from
-                  // the shared user in AuthContext. AvatarUpload refreshes that
-                  // shared one; this updates ours, so the photo on screen here
-                  // changes at the same moment as the one in the header.
-                  onUploaded={(me) =>
-                    setProfile((current) => ({
-                      ...current,
-                      avatar_url: me.avatar_url,
-                    }))
-                  }
-                />
-              ) : (
-                <Avatar
-                  src={profile.avatar_url}
-                  username={profile.username}
-                  size="lg"
-                />
-              )}
+              <div className="mt-4 flex items-center gap-4 sm:gap-8">
+                {/* Your own photo is a button; everyone else's is just a
+                    picture. isMe decides which is drawn, and the backend decides
+                    for real -- /users/me/avatar can only ever change the account
+                    the token belongs to, so there is no way to aim it at someone
+                    else however the page is edited in a browser.
 
-              {/* min-w-0 looks like it does nothing, and it is the whole fix.
-               *
-               * A flex item silently gets min-width:auto, which means "never
-               * shrink below your own content". So a long username cannot wrap
-               * -- it just pushes this column wider, and the page with it.
-               * min-w-0 removes that floor, and the text wraps instead.
-               *
-               * shrink-0 on the avatar above is the other half. Without it the
-               * flex row would take the space out of the picture instead, and
-               * a round profile photo squashes into an oval.
-               *
-               * Search.jsx and CommentList.jsx already do this. Profile was the
-               * one that got missed. */}
-              <div className="min-w-0">
-                <h1 className="text-h1 font-semibold break-words text-ink">
-                  {profile.username}
-                </h1>
-                {profile.full_name && (
-                  <p className="text-body text-ink-muted">{profile.full_name}</p>
+                    Both the camera button and the upload live in AvatarUpload,
+                    because the edit page needs exactly the same thing and two
+                    copies drift apart the moment either is touched. */}
+                {isMe ? (
+                  <AvatarUpload
+                    src={profile.avatar_url}
+                    username={profile.username}
+                    size="lg"
+                    onError={setError}
+                    // This page holds its own copy of the profile, separate from
+                    // the shared user in AuthContext. AvatarUpload refreshes that
+                    // shared one; this updates ours, so the photo on screen here
+                    // changes at the same moment as the one in the header.
+                    onUploaded={(me) =>
+                      setProfile((current) => ({
+                        ...current,
+                        avatar_url: me.avatar_url,
+                      }))
+                    }
+                  />
+                ) : (
+                  <Avatar
+                    src={profile.avatar_url}
+                    username={profile.username}
+                    size="lg"
+                  />
                 )}
-                {profile.bio && (
-                  <p className="mt-1 break-words text-small text-ink-muted">
-                    {profile.bio}
-                  </p>
-                )}
-                {/* The three counts. All computed by the backend when
-                    asked, never stored, so they cannot drift out of step
-                    with reality.
 
-                    follower_count = people who follow THIS user
+                {/* The three counts, number above word, spread across whatever
+                    room is left. All computed by the backend when asked, never
+                    stored, so they cannot drift out of step with reality.
+
+                    follower_count  = people who follow THIS user
                     following_count = people THIS user follows
 
                     Those two come from the same table read from opposite
-                    directions, and mixing them up is the classic bug in
-                    this part of the app. */}
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-small text-ink">
-                  <span>
-                    <span className="font-semibold">{profile.post_count}</span>{' '}
-                    {profile.post_count === 1 ? 'post' : 'posts'}
-                  </span>
-                  {/* These two are BUTTONS now, not text. A count you can open
-                      is a control, and a control has to say so -- it needs a
-                      hover state, a press state and a thumb-sized target, or
-                      nobody discovers it is tappable.
+                    directions, and mixing them up is the classic bug in this
+                    part of the app. */}
+                <div className="flex flex-1 justify-around text-center text-ink">
+                  <div>
+                    <span className="block text-h2 font-semibold">
+                      {profile.post_count}
+                    </span>
+                    <span className="text-small text-ink-muted">
+                      {profile.post_count === 1 ? 'post' : 'posts'}
+                    </span>
+                  </div>
+
+                  {/* These two are BUTTONS, not text. A count you can open is a
+                      control, and a control has to say so -- it needs a hover
+                      state, a press state and a thumb-sized target, or nobody
+                      discovers it is tappable.
 
                       The post count stays plain text because there is nothing
                       to open: the grid is already below. */}
                   <button
                     onClick={() => setListKind('followers')}
-                    className="rounded-control transition hover:underline active:opacity-70"
+                    className="rounded-control px-2 transition hover:bg-hover active:opacity-70"
                   >
-                    <span className="font-semibold">
+                    <span className="block text-h2 font-semibold">
                       {profile.follower_count}
-                    </span>{' '}
-                    {profile.follower_count === 1 ? 'follower' : 'followers'}
+                    </span>
+                    <span className="text-small text-ink-muted">
+                      {profile.follower_count === 1 ? 'follower' : 'followers'}
+                    </span>
                   </button>
+
                   <button
                     onClick={() => setListKind('following')}
-                    className="rounded-control transition hover:underline active:opacity-70"
+                    className="rounded-control px-2 transition hover:bg-hover active:opacity-70"
                   >
-                    <span className="font-semibold">
+                    <span className="block text-h2 font-semibold">
                       {profile.following_count}
-                    </span>{' '}
-                    following
+                    </span>
+                    <span className="text-small text-ink-muted">following</span>
                   </button>
                 </div>
+              </div>
 
-                {/* No follow button on your own profile. The backend also
-                    refuses a self-follow with a 400, and the database
-                    refuses it underneath that -- three layers, because
-                    hiding a button stops nobody. */}
-                {!isMe && (
-                  <div className="mt-3">
-                    <FollowButton
-                      username={profile.username}
-                      isFollowing={profile.is_following}
-                      onChange={handleFollowChange}
-                    />
-                  </div>
-                )}
+              {/* Name and bio, across the full width. break-words so a long
+                  unbroken string -- a pasted link, say -- wraps instead of
+                  pushing the page sideways. */}
+              {(profile.full_name || profile.bio) && (
+                <div className="mt-4">
+                  {profile.full_name && (
+                    <p className="text-strong font-semibold break-words text-ink">
+                      {profile.full_name}
+                    </p>
+                  )}
+                  {profile.bio && (
+                    <p className="mt-1 whitespace-pre-wrap break-words text-small text-ink">
+                      {profile.bio}
+                    </p>
+                  )}
+                </div>
+              )}
 
-                {/* Your own profile gets an edit link where the follow button
-                    would be. Nothing here is a permission check -- it decides
-                    what is drawn, and PATCH /users/me decides what may change. */}
-                {isMe && (
-                  <div className="mt-3">
-                    <Link to="/accounts/edit">
-                      <Button variant="secondary">Edit profile</Button>
-                    </Link>
-                  </div>
+              {/* One button, full width on a phone, sized to its text from sm:
+                  up. Instagram does exactly this, and it is not decoration: a
+                  full-width target is the easiest thing in the world to hit
+                  one-handed.
+
+                  No follow button on your own profile. The backend also refuses
+                  a self-follow with a 400, and the database refuses it
+                  underneath that -- three layers, because hiding a button stops
+                  nobody. */}
+              <div className="mt-4">
+                {isMe ? (
+                  <Link to="/accounts/edit" className="block sm:inline-block">
+                    <Button variant="secondary" fullWidth className="sm:w-auto">
+                      Edit profile
+                    </Button>
+                  </Link>
+                ) : (
+                  <FollowButton
+                    username={profile.username}
+                    isFollowing={profile.is_following}
+                    onChange={handleFollowChange}
+                    fullWidth
+                  />
                 )}
               </div>
             </Card>
@@ -332,7 +357,13 @@ export default function Profile() {
                 )}
               </EmptyState>
             ) : (
-              <div className="mt-6 grid grid-cols-3 gap-1 sm:gap-2">
+              /* Edge to edge on a phone, like Instagram's. -mx-4 cancels the
+                 page's own px-4 so the squares reach both edges, and sm:mx-0
+                 hands it back once there is width to spare.
+
+                 gap-px is the hairline Instagram leaves between squares. gap-1
+                 was 4px, which reads as a deliberate gap rather than a seam. */
+              <div className="-mx-4 mt-6 grid grid-cols-3 gap-px sm:mx-0 sm:gap-1">
                 {/* .map turns a list of data into a list of things to draw.
                     key={post.id} tells React which item is which, so when one
                     is removed it updates just that square instead of redrawing

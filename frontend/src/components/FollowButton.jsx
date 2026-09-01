@@ -15,7 +15,19 @@ import Button from './ui/Button'
 //
 // Passing values down and reporting changes up is the normal way React
 // components talk to each other.
-export default function FollowButton({ username, isFollowing, onChange }) {
+// fullWidth is passed straight through to Button. Added for the profile
+// page in the Phase 11 comparison: Instagram's Follow button spans the
+// whole width there, exactly like Edit profile does on your own page.
+// Without it a stranger's profile got a small button where yours got a
+// wide one, which is the kind of difference nobody names and everybody
+// feels. It stays false by default, because the follow buttons in the
+// followers and following lists must NOT stretch.
+export default function FollowButton({
+  username,
+  isFollowing,
+  onChange,
+  fullWidth = false,
+}) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -55,6 +67,7 @@ export default function FollowButton({ username, isFollowing, onChange }) {
           separately hand-written class strings that had drifted apart. */}
       <Button
         variant={isFollowing ? 'secondary' : 'primary'}
+        fullWidth={fullWidth}
         onClick={handleClick}
         disabled={submitting}
       >

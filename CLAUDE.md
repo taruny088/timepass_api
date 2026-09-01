@@ -1,14 +1,32 @@
 # How to work with me
 
-**Current work: Phase 13 — Account and profile. All three steps built, pushed, and
-working locally including real email delivery. Remaining to close it: test on the
-live Render address, including on a phone.**
+**Current work: Phase 11's side-by-side comparison — done, needs your eyes on a
+phone to confirm. Phase 13 done and live (forgot-password confirmed working on
+the live site). Next up: Phase 14 — finding things.**
 (Phases 11 and 12 done and tested live. Design system: `frontend/src/index.css`.
 Shared pieces: `frontend/src/components/ui/`. Alembic is set up with four
 migrations applied to the live database; `create_tables.py` must never be used to
 change an existing table. Photos live on Cloudinary, `public_id` stored so they
-can be deleted. Still owed: two small changes, and the Instagram side-by-side
-comparison that formally closes Phase 11.)
+can be deleted. Still owed: the two small changes below, for you to make
+yourself.)
+
+**Phase 11's comparison, done 1 September 2026.** The design system passed its
+own test outright: no raw colour codes outside `index.css`, no text size off the
+six, no drop shadows on cards, one off-scale spacing value. So the differences
+were structural, not stylistic, and four were fixed:
+
+- The feed now runs EDGE TO EDGE on a phone. It was a bordered card inside a page
+  with 16px padding, which cost 34 of 375 pixels — nine percent of the photo, on
+  the one screen the app exists to show photos on. `Card` gained a `flush` prop.
+- The profile header was rebuilt to Instagram's shape: only the three counts sit
+  beside the avatar, and the display name, bio and button get the full width. The
+  bio used to wrap inside a ~250px column.
+- The photo grid goes edge to edge too, with a hairline gap instead of 4px.
+- `FollowButton` gained `fullWidth`, so a stranger's profile gets the same
+  full-width button your own does.
+
+Left alone on purpose: the feed column is `max-w-lg` (512px) against Instagram's
+470px, a desktop-only difference, and PLAN2 makes the phone the normal case.
 
 **Email, decided 1 September 2026 — do not re-litigate this by accident.**
 No domain is owned, and that is a deliberate choice, not an oversight. Resend's

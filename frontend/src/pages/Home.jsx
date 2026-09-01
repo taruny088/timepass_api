@@ -90,13 +90,30 @@ export default function Home() {
           ON TOP of the page rather than pushing it down. Without this padding
           the last post hides permanently underneath the bar and no amount of
           scrolling reaches it. md:pb-8 takes it back once the bar is gone. */}
-      <main className="mx-auto max-w-lg px-4 py-6 pb-24 md:pb-8">
+      {/* NO px-4 HERE ANY MORE. From Phase 11's side-by-side comparison:
+          Instagram's feed on a phone runs EDGE TO EDGE, the photo touching both
+          sides of the screen. Page padding here cost 32 of 375 pixels, and the
+          card borders another 2 -- nine percent of the photo, on the one screen
+          the whole app exists to show photos on.
+
+          The padding moves onto the things that still want it, below. Only the
+          posts go full width, and only on a phone: sm:px-4 puts it back as soon
+          as there is width to spare.
+
+          max-w-lg is 512px and Instagram's feed column is 470px, so this is
+          slightly wide on a laptop. Left alone deliberately: it is a
+          desktop-only difference, and PLAN2 makes the phone the normal case. */}
+      <main className="mx-auto max-w-lg py-6 pb-24 sm:px-4 md:pb-8">
         {/* STATE 1: loading */}
-        {loading && <Spinner label="Loading feed" />}
+        {loading && (
+          <div className="px-4 sm:px-0">
+            <Spinner label="Loading feed" />
+          </div>
+        )}
 
         {/* STATE 2: it failed */}
         {!loading && error && posts.length === 0 && (
-          <div className="rounded-card border border-danger-line bg-danger-soft p-6 text-center">
+          <div className="mx-4 rounded-card border border-danger-line bg-danger-soft p-6 text-center sm:mx-0">
             <p className="text-body text-danger">{error}</p>
           </div>
         )}
@@ -135,27 +152,29 @@ export default function Home() {
         {/* An error that happened while loading MORE, with posts already on
             screen. Shown under them rather than replacing them. */}
         {error && posts.length > 0 && (
-          <p className="mt-4 rounded-control bg-danger-soft px-3 py-2 text-center text-small text-danger">
+          <p className="mx-4 mt-4 rounded-control bg-danger-soft px-3 py-2 text-center text-small text-danger sm:mx-0">
             {error}
           </p>
         )}
 
         {hasMore && (
-          <Button
-            variant="secondary"
-            fullWidth
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="mt-6"
-          >
-            {loadingMore ? 'Loading...' : 'Load more'}
-          </Button>
+          <div className="px-4 sm:px-0">
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="mt-6"
+            >
+              {loadingMore ? 'Loading...' : 'Load more'}
+            </Button>
+          </div>
         )}
 
         {/* Only say "you have reached the end" once there is actually
             something above it to have reached the end of. */}
         {!loading && !hasMore && posts.length > 0 && (
-          <p className="mt-6 text-center text-small text-ink-muted">
+          <p className="mt-6 px-4 text-center text-small text-ink-muted sm:px-0">
             You are all caught up.
           </p>
         )}

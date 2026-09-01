@@ -258,7 +258,7 @@ export default function CreatePost() {
                     className="h-full w-full object-cover"
                   />
 
-                  <span className="absolute left-1 top-1 rounded-full bg-scrim px-1.5 text-tiny font-semibold text-on-scrim">
+                  <span className="absolute left-1 top-1 rounded-full bg-scrim px-2 text-tiny font-semibold text-on-scrim">
                     {position + 1}
                   </span>
 

@@ -133,7 +133,10 @@ export default function PostCard({
         `${caption.slice(0, CAPTION_LIMIT).trimEnd()}… `
 
   return (
-    <Card as="article" className="overflow-hidden">
+    // flush: no border and no corners on a phone, a normal card from sm: up.
+    // See Card.jsx for the arithmetic -- the biggest single finding of the
+    // Phase 11 comparison.
+    <Card as="article" flush className="overflow-hidden">
       <PostHeader post={post} onDelete={onDelete} />
 
       {/* THE PHOTO IS NOT A LINK, and that is deliberate.
