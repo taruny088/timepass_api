@@ -30,7 +30,6 @@ from app.email_tokens import (
 )
 from app.mailer import APP_URL, EMAIL_ENABLED, EmailResult, send_email
 from app.models import User
-from app.security import hash_password, verify_password
 from app.schemas import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
@@ -38,6 +37,7 @@ from app.schemas import (
     ResetPasswordRequest,
     VerifyEmailRequest,
 )
+from app.security import hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["account"])
 

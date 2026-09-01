@@ -33,8 +33,32 @@ when a real user is waiting for an email that was never sent.
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import resend
+from dotenv import load_dotenv
+
+# READ backend/.env OURSELVES, RATHER THAN RELYING ON SOMEBODY ELSE HAVING
+# DONE IT. This looks redundant -- app/database.py already calls load_dotenv --
+# and it is not.
+#
+# The settings below are read ONCE, at the moment this file is first imported.
+# So they are only correct if .env has already been loaded by then, and until
+# this line existed that was true purely by accident: account.py happens to
+# import app.database on an earlier line than app.mailer, because "database"
+# sorts before "mailer".
+#
+# Reorder those imports, or import this file from a standalone script, and
+# RESEND_API_KEY reads as unset while a perfectly good key sits in .env. The
+# symptom is the app insisting email is not configured, which sends you looking
+# at your key, your Resend account and your spelling -- everywhere except the
+# import order that actually caused it.
+#
+# load_dotenv does NOT overwrite a variable that is already set, so calling it
+# in two files is safe and changes nothing on a real deployment, where Render
+# supplies these through the real environment and there is no .env at all.
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BACKEND_DIR / ".env")
 
 # Loaded once when this file is first imported.
 #
