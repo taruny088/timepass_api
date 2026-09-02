@@ -11,10 +11,11 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app import realtime
 from app.conversations import get_conversation_or_404
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Message, User
+from app.models import Conversation, Message, User
 from app.schemas import ChatMessageCreate, ChatMessageOut, MessageOut
 
 # Same prefix as conversations.py, different file. The addresses belong under
@@ -37,6 +38,10 @@ def read_messages(
     before: int | None = Query(
         default=None,
         description="Return messages older than this message id. Leave out for the newest.",
+    ),
+    after: int | None = Query(
+        default=None,
+        description="Return messages newer than this message id. Used to catch up after the live connection drops.",
     ),
     limit: int = Query(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     db: Session = Depends(get_db),
@@ -63,14 +68,41 @@ def read_messages(
     30 messages older than number 412" means the same thing however many new
     messages have arrived at the other end, because 412 does not move.
 
-    16c uses the same idea pointing the other way: after the live connection
-    drops and comes back, the browser asks for everything NEWER than the last
-    message it has.
+    `after` IS THAT SAME IDEA POINTING THE OTHER WAY, and it is what makes a
+    dropped connection recoverable.
+
+    While the live connection is down, messages are still being saved -- they
+    are just pushed into a socket nobody is holding, and lost. Reconnecting on
+    its own does not bring them back. So on reconnect the browser asks "give me
+    everything newer than 412", the newest message it actually has, and the gap
+    fills in.
+
+    If both are given, `after` wins. Nothing in the app sends both, and
+    quietly answering one question rather than inventing a meaning for two
+    contradictory ones keeps this honest.
     """
     # The permission check and the lookup, in one call that cannot be skipped.
     get_conversation_or_404(db, conversation_id, current_user)
 
     query = select(Message).where(Message.conversation_id == conversation_id)
+
+    # CATCHING UP, which sorts the opposite way round from everything below.
+    #
+    # Here we want the messages just AFTER the cursor -- the ones missed while
+    # disconnected, in the order they were written. That is already the order
+    # they will be drawn in, so there is nothing to reverse.
+    #
+    # The limit still applies. If somebody was away long enough for more than
+    # 100 messages, this returns the first 100 and the browser asks again from
+    # the new newest id.
+    if after is not None:
+        return list(
+            db.scalars(
+                query.where(Message.id > after)
+                .order_by(Message.id.asc())
+                .limit(limit)
+            ).all()
+        )
 
     if before is not None:
         query = query.where(Message.id < before)
@@ -120,11 +152,13 @@ def send_message(
     read_at is left NULL: it has just been sent, so of course nobody has read
     it. It is filled in when the other person calls the read endpoint below.
 
-    In 16c this is also where the message gets pushed down the live connection
-    to the other person. Nothing about the row changes for that -- the saving is
-    the same, the delivery is the part that is new.
+    THE LIVE PUSH HAPPENS HERE, and nothing about the saving changed for it.
+    The row is written exactly as before; delivery is a separate step bolted on
+    after the commit. See _publish_new_message below.
     """
-    get_conversation_or_404(db, conversation_id, current_user)
+    # The return value is kept this time -- _publish_new_message needs it to
+    # work out who the other person is.
+    conversation = get_conversation_or_404(db, conversation_id, current_user)
 
     message = Message(
         conversation_id=conversation_id,
@@ -142,7 +176,57 @@ def send_message(
     # in 16c and avoid drawing it twice.
     db.refresh(message)
 
+    # AFTER THE COMMIT, NEVER BEFORE.
+    #
+    # Push first and the message is on somebody's screen before it is safely
+    # in the database. If the commit then fails, they are looking at a message
+    # that does not exist and will vanish the next time they refresh -- which
+    # is a far stranger thing to experience than a message that failed to send.
+    #
+    # Saving is the promise. Delivery is a bonus on top of it.
+    _publish_new_message(conversation, message, current_user)
+
     return message
+
+
+def _publish_new_message(
+    conversation: Conversation, message: Message, sender: User
+) -> None:
+    """Push one new message down the live connection, to both people.
+
+    BOTH, INCLUDING THE SENDER, and that is not a mistake. You might have the
+    app open on a phone and a laptop; the message you just sent from one has to
+    appear on the other. Sending only to the other person would leave your own
+    second device silently behind.
+
+    The tab that sent it also receives it back, and has it on screen already
+    from the optimistic update. Chat.jsx throws that copy away by id -- which
+    is what the negative temporary ids in that file are for.
+
+    model_dump(mode="json") RATHER THAN model_dump(), and the difference bites.
+    A plain model_dump leaves created_at as a Python datetime object, and the
+    JSON encoder behind send_json has no idea what to do with one -- it raises,
+    the push fails, and it fails inside a background task where the error is
+    easy to miss. mode="json" turns it into the same ISO-8601 text the ordinary
+    API response carries, so both routes deliver a message of exactly the same
+    shape. The frontend must never have to care which way a message arrived.
+    """
+    payload = {
+        # OUR OWN LABEL, not part of WebSocket. A socket is a bare pipe: it
+        # carries text and knows nothing about what the text means. Every bit
+        # of structure on it is something we invented, and this field is how
+        # the browser tells one kind of event from another.
+        "type": "message.new",
+        # The conversation is named at the top level as well as inside the
+        # message, because ONE SOCKET CARRIES EVERY CONVERSATION. The chat
+        # screen has to decide "is this mine to draw?" before looking any
+        # further, and the inbox needs it to know which row to move to the top.
+        "conversation_id": message.conversation_id,
+        "message": ChatMessageOut.model_validate(message).model_dump(mode="json"),
+    }
+
+    realtime.publish(conversation.other_person_id(sender.id), payload)
+    realtime.publish(sender.id, payload)
 
 
 @router.post(
@@ -198,6 +282,32 @@ def mark_read(
         .values(read_at=datetime.now(timezone.utc))
     )
     db.commit()
+
+    # TELL YOUR OTHER DEVICES, so the badge clears everywhere at once.
+    #
+    # Read the chat on your phone and the count in your laptop's header is now
+    # wrong. It stays wrong until that page is reloaded, which is exactly the
+    # refreshing this phase exists to remove.
+    #
+    # Only when something actually changed. rowcount of zero means there was
+    # nothing unread, so there is no news to send -- and reopening a chat you
+    # have already read is the most common thing that happens on this endpoint.
+    #
+    # THE OTHER PERSON IS DELIBERATELY NOT TOLD. The only thing they could do
+    # with the news is draw a "Seen" mark under their message, and read
+    # receipts are not part of this sitting. When they are, this is the one
+    # line that changes -- the timestamp they need is already in the column.
+    if result.rowcount:
+        realtime.publish(
+            current_user.id,
+            {
+                "type": "message.read",
+                "conversation_id": conversation_id,
+                # How many stopped being unread. The header does not have to
+                # re-ask the server for a number it can work out from this.
+                "count": result.rowcount,
+            },
+        )
 
     # rowcount is how many rows the statement actually changed. Reported back
     # because it is genuinely useful to the caller: zero means there was nothing

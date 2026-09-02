@@ -1,8 +1,33 @@
 # How to work with me
 
-**Current work: PHASE 16 — messaging. 16a done and live. 16b built (inbox and
-chat screens) — needs clicking through locally before pushing. Next: 16c, the
-WebSocket.**
+**Current work: PHASE 16 — messaging. 16a and 16b are done and pushed. 16c (the
+WebSocket) is built, tested locally and pushed — still owed: the test on the
+LIVE address, including on a phone. Phase 16 is not finished until that passes.**
+
+**Phase 16c decisions, made 2 September 2026 — do not re-litigate by accident.**
+- SEND OVER HTTP, RECEIVE OVER THE SOCKET. Messages are still sent with the
+  ordinary POST, which returns the saved row and gives a real error to retry
+  from. The socket only delivers. So a broken socket degrades the chat instead
+  of breaking it.
+- THE TOKEN TRAVELS AS THE FIRST MESSAGE on the socket, never as `?token=` in
+  the address. Servers and proxies log full addresses as a matter of routine,
+  and that would write the login token into Render's log in plain text. The
+  browser cannot send an Authorization header on a WebSocket, so some
+  arrangement like this was always needed. See `backend/app/ws.py`.
+- CORS DOES NOT APPLY TO WEBSOCKETS, and browsers do not enforce same-origin on
+  them either. `ws.py` checks the Origin header itself. It matters little while
+  the token lives in localStorage; it would matter enormously if it ever moved
+  into a cookie.
+- WHO IS CONNECTED IS HELD IN ONE PROCESS'S MEMORY (`backend/app/realtime.py`).
+  Correct on Render's free plan, which runs one copy. Scale past one instance
+  and half the pushes silently go nowhere — the fix then is Redis pub/sub, and
+  that file is what changes.
+- ENTER SENDS AND THE CURSOR STARTS IN THE MESSAGE BOX, on a mouse only. On a
+  touch screen Enter makes a new line and nothing is focused, because there is
+  no Shift+Enter on a phone keyboard and autofocus would open the keyboard over
+  the conversation you just opened. Both use `(pointer: coarse)`.
+- No read receipts ("Seen"). Deliberately out of scope; `read_at` and the
+  `message.read` event already support it when it is wanted.
 
 **`npm run build` IS MEANINGLESS WITHOUT frontend/.env.** VITE_API_URL unset
 makes the guard in api/client.js an unconditional throw, which the bundler can

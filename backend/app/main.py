@@ -10,8 +10,6 @@ file stays small on purpose: its job is to assemble the app, not to hold
 features. Each later phase adds one more router here.
 """
 
-import os
-
 import logging
 import traceback
 
@@ -33,40 +31,19 @@ from app import (
     posts,
     search,
     users,
+    ws,
 )
+from app.config import ALLOWED_ORIGINS
 from app.database import get_db
 
 app = FastAPI(title="Timepass API")
 
-# Where the website is allowed to call us from.
+# ALLOWED_ORIGINS -- the list of websites allowed to call this backend -- now
+# lives in app/config.py.
 #
-# app.database has already run load_dotenv by the time this line executes, so
-# the value from backend/.env is available. On a hosting platform there is no
-# .env file at all -- load_dotenv simply does nothing, and os.getenv reads the
-# real environment variables the platform provides instead.
-#
-# The value may list SEVERAL addresses separated by commas, so the same
-# deployment can allow the live site and a developer's laptop at once:
-#
-#     FRONTEND_ORIGIN=http://localhost:5173,https://insta-clone.onrender.com
-#
-# With no comma it is simply a list of one, which is why local development is
-# unaffected.
-_frontend_origins_raw = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
-
-# .strip() removes stray spaces around a comma, so "a, b" works as well as
-# "a,b".
-#
-# .rstrip("/") removes a trailing slash, and that matters more than it looks.
-# The CORS check compares plain text, so "https://site.com" and
-# "https://site.com/" are two different things to it. A stray slash is one of
-# the most common deployment mistakes, and it fails silently from the server's
-# side -- the browser reports the error, the backend logs nothing unusual.
-ALLOWED_ORIGINS = [
-    origin.strip().rstrip("/")
-    for origin in _frontend_origins_raw.split(",")
-    if origin.strip()
-]
+# It moved there in Phase 16c because ws.py needs the same list, and ws.py
+# cannot import this file: this file imports ws.py, and two files importing
+# each other is a circular import that fails at startup. See config.py.
 
 # --- Crashes must still answer with CORS headers -----------------------------
 #
@@ -160,6 +137,14 @@ app.include_router(search.router)  # /search/users
 # two jobs -- the same split as posts.py and comments.py.
 app.include_router(conversations.router)  # /conversations
 app.include_router(messages.router)       # /conversations/{id}/messages
+
+# Phase 16c. NOT an ordinary router: it carries one WebSocket address, /ws,
+# which the browser holds open so the server can push new messages to it.
+#
+# NOTE THAT THE CORS MIDDLEWARE ABOVE DOES NOT COVER IT. CORS does not apply to
+# WebSockets at all, and browsers do not enforce same-origin on them either, so
+# ws.py checks the Origin header itself. See the comment in that file.
+app.include_router(ws.router)             # /ws
 
 
 @app.get("/health")

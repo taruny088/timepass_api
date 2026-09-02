@@ -558,6 +558,25 @@ class ConversationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UnreadCountOut(BaseModel):
+    """The number for the badge on the messages icon.
+
+    CONVERSATIONS, NOT MESSAGES, and that is a copy of what Instagram does.
+
+    If one person sends you five messages, this says 1, not 5. The badge is
+    answering "how many chats want your attention", and a 5 there would send
+    you looking for five conversations when there is only one. The per-chat
+    number in the inbox counts messages, because there the question really is
+    "how much have I got to catch up on in this thread".
+
+    Its own tiny endpoint rather than a field on something bigger, because the
+    header needs it on every screen in the app and must not download the whole
+    inbox to draw one number.
+    """
+
+    unread_conversations: int
+
+
 class PostCreate(BaseModel):
     """The text part of POST /posts.
 

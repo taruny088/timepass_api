@@ -36,7 +36,11 @@ if (!API_URL && !import.meta.env.DEV) {
   )
 }
 
-const BASE_URL = API_URL || 'http://localhost:8000'
+// EXPORTED since Phase 16c. The live connection in lib/socket.js has to reach
+// the same backend, and works out its own ws:// address from this one. Working
+// it out separately there would mean two places that both decide where the
+// backend is, and one of them eventually being wrong.
+export const BASE_URL = API_URL || 'http://localhost:8000'
 
 // The one place the token is stored. Everything else goes through these three
 // functions, so if we ever change where it lives, we change it here only.

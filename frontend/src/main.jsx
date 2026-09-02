@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { AuthProvider } from './auth/AuthContext.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { SocketProvider } from './realtime/SocketContext.jsx'
 import { ThemeProvider } from './theme/ThemeContext.jsx'
 import './index.css'
 
@@ -37,6 +38,12 @@ import './index.css'
 //                 inside BrowserRouter because it will eventually need routing,
 //                 and outside App because every page needs auth.
 //
+//   SocketProvider (Phase 16c) holds the ONE live connection to the server, so
+//                 new messages arrive without refreshing. Inside AuthProvider
+//                 because it cannot connect until it knows somebody is logged
+//                 in -- the connection proves who it is with the login token.
+//                 Outside App because three different screens listen to it.
+//
 //   App           the route table itself.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -44,7 +51,9 @@ createRoot(document.getElementById('root')).render(
       <ThemeProvider>
         <BrowserRouter>
           <AuthProvider>
-            <App />
+            <SocketProvider>
+              <App />
+            </SocketProvider>
           </AuthProvider>
         </BrowserRouter>
       </ThemeProvider>

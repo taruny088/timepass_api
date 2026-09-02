@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useSocket } from '../realtime/SocketContext'
 import MessageBubble from '../components/MessageBubble'
 import Avatar from '../components/ui/Avatar'
 import Spinner from '../components/ui/Spinner'
@@ -33,9 +34,75 @@ const NEAR_BOTTOM_PX = 120
 // early means they are usually there before you reach the end.
 const NEAR_TOP_PX = 80
 
+// Add a message that arrived over the live connection, without ever drawing
+// the same one twice.
+//
+// TWO WAYS A DUPLICATE HAPPENS, and both are real:
+//
+//   1. The server pushes every new message to BOTH people, including the
+//      sender -- because you might have the app open on a phone and a laptop
+//      and the other one has to see it too. So the tab that sent it gets it
+//      back, and already has it on screen.
+//
+//   2. Catching up after a reconnection can fetch a message that also arrived
+//      as a push a moment later.
+//
+// The id check handles both. Note it returns the ORIGINAL array when nothing
+// changed: React skips redrawing when the value is the same object, so an
+// ignored duplicate costs nothing at all.
+function addMessage(messages, incoming) {
+  if (messages.some((message) => message.id === incoming.id)) return messages
+
+  // THE RACE THIS SECOND CHECK EXISTS FOR. When you send a message, it goes on
+  // screen immediately with a temporary negative id, and the POST replaces it
+  // with the saved version a moment later. But the push travels separately and
+  // can arrive FIRST -- and then, for an instant, the same message is on
+  // screen twice: once as your placeholder and once as the real thing.
+  //
+  // So if this is our own message and a placeholder is still waiting, the real
+  // version takes its place rather than being added beside it.
+  //
+  // Matching on the text is a guess rather than a proof, and it is a safe one:
+  // the worst it can do is reuse a bubble when you send the same words twice
+  // in the same second, which looks identical either way.
+  const placeholder = messages.findIndex(
+    (message) =>
+      message.pending &&
+      message.sender_id === incoming.sender_id &&
+      message.body === incoming.body,
+  )
+
+  if (placeholder !== -1) {
+    const copy = [...messages]
+    copy[placeholder] = incoming
+    return copy
+  }
+
+  return [...messages, incoming]
+}
+
+// The newest message the screen actually has, ignoring anything not yet saved.
+//
+// Placeholders count DOWN from -1, and the server only ever hands out positive
+// ids, so filtering to positives is what keeps a temporary id from being sent
+// to the server as a cursor -- which would ask for "everything after -3" and
+// fetch the entire conversation.
+function newestSavedId(messages) {
+  let newest = null
+
+  for (const message of messages) {
+    if (message.id > 0 && (newest === null || message.id > newest)) {
+      newest = message.id
+    }
+  }
+
+  return newest
+}
+
 export default function Chat() {
   const { conversationId } = useParams()
   const { user } = useAuth()
+  const { subscribe, isConnected, openCount } = useSocket()
 
   const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([])
@@ -59,6 +126,15 @@ export default function Chat() {
   // Set just before older messages are added, so the layout effect below knows
   // to put the screen back where it was. Null the rest of the time.
   const restoreRef = useRef(null)
+
+  // The message box itself, so the cursor can be put in it when the screen
+  // opens. See the focus effect below.
+  const composerRef = useRef(null)
+
+  // Set when a message arrives while this tab is in the background, so it can
+  // be marked read the moment you come back to it. See the live-delivery
+  // handler and the visibility effect below.
+  const arrivedWhileHiddenRef = useRef(false)
 
   // The id for the next not-yet-sent message. COUNTS DOWNWARDS FROM -1.
   //
@@ -109,6 +185,170 @@ export default function Chat() {
 
     return () => {
       ignore = true
+    }
+  }, [conversationId])
+
+  // --- live delivery -------------------------------------------------------
+
+  // The same stale-closure guard as Messages.jsx: the listener below is created
+  // once and lives as long as this screen, so it must not read `messages`
+  // directly -- it would forever see the empty list from the moment it was
+  // made. A ref is one box that is always current.
+  const messagesRef = useRef(messages)
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  useEffect(() => {
+    return subscribe((event) => {
+      if (event.type !== 'message.new') return
+
+      // ONE SOCKET CARRIES EVERY CONVERSATION YOU ARE IN, so a message for a
+      // different chat arrives here too and must be ignored. useParams hands
+      // back the id from the address as text, and the push carries it as a
+      // number, so one of them has to be converted -- comparing them directly
+      // would be false every single time, and the chat would silently never
+      // update.
+      if (event.conversation_id !== Number(conversationId)) return
+
+      setMessages((current) => addMessage(current, event.message))
+
+      if (event.message.sender_id === user.id) return
+
+      // A message arrived while you are looking at the conversation, so it has
+      // been read. Without this the badge in the header would count a message
+      // that is on the screen in front of you.
+      //
+      // ONLY IF THE TAB IS ACTUALLY VISIBLE. A chat left open in a background
+      // tab is not being read, and marking it read would clear the badge for a
+      // message nobody has seen -- the same mistake the backend avoids by
+      // refusing to mark messages read on a GET.
+      if (document.visibilityState === 'visible') {
+        api.post(`/conversations/${conversationId}/read`).catch(() => {})
+        return
+      }
+
+      // THE TAB IS HIDDEN, so remember that something arrived unread. The
+      // effect below marks it when you come back.
+      //
+      // THE BUG THIS FIXES, because it is a good example of a half-finished
+      // rule. Skipping the mark while hidden is right. But nothing was
+      // finishing the job afterwards, so a message that arrived while you were
+      // in another tab stayed unread FOREVER -- the chat was open, the message
+      // was on screen, and the header still insisted there was something to
+      // read. Re-opening the conversation was the only thing that cleared it,
+      // because that is the one other place that marks messages read.
+      //
+      // A ref rather than state: nothing on screen is drawn from this, so
+      // changing it should not cause a redraw.
+      arrivedWhileHiddenRef.current = true
+    })
+  }, [subscribe, conversationId, user.id])
+
+  // --- catching up after a drop ---------------------------------------------
+  //
+  // THIS IS THE PART THAT MAKES A DROPPED CONNECTION SURVIVABLE, and it is
+  // easy to leave out because everything looks fine without it until the day
+  // it does not.
+  //
+  // While the connection is down, messages are still being saved. They are
+  // pushed into a socket nobody is holding, and they are gone. Reconnecting
+  // does not bring them back -- the connection has no memory of what it missed.
+  // So the screen asks for everything newer than the last message it has.
+  //
+  // openCount is the counter from SocketContext: how many times the connection
+  // has become usable. Comparing it with the value seen on the previous run is
+  // what tells "this is a NEW connection" apart from "this is the first one",
+  // where there is nothing to catch up on.
+  const lastSeenOpenCount = useRef(openCount)
+
+  useEffect(() => {
+    if (openCount === lastSeenOpenCount.current) return
+
+    lastSeenOpenCount.current = openCount
+
+    const newest = newestSavedId(messagesRef.current)
+
+    // Nothing saved yet, so there is no cursor to count from and nothing can
+    // have been missed.
+    if (newest === null) return
+
+    api
+      .get(`/conversations/${conversationId}/messages?after=${newest}`)
+      .then((response) => {
+        if (response.data.length === 0) return
+
+        // Added one at a time through the same function the live push uses, so
+        // a message that arrived BOTH ways -- fetched here and pushed a moment
+        // later -- is still only drawn once.
+        setMessages((current) =>
+          response.data.reduce(addMessage, current),
+        )
+
+        if (document.visibilityState === 'visible') {
+          api.post(`/conversations/${conversationId}/read`).catch(() => {})
+        }
+      })
+      // Quiet: the next reconnection tries again, and an error box over a
+      // conversation that is working is worse than a short gap.
+      .catch(() => {})
+  }, [openCount, conversationId])
+
+  // --- the cursor starts in the message box ---------------------------------
+  //
+  // Opening a conversation means you are about to type, so the cursor should
+  // already be there rather than needing a click first.
+  //
+  // AFTER LOADING, NOT ON ARRIVAL, and this is the part that would quietly not
+  // work. The box is disabled while the messages are being fetched, and a
+  // disabled element cannot be focused -- the browser refuses, silently. So
+  // `loading` is in the dependency list: the effect runs again the moment the
+  // box becomes usable, and that is the run that actually does something.
+  //
+  // (It is why the plain `autoFocus` attribute is no good here. It fires once,
+  // when the element first appears, which is exactly the moment it is still
+  // disabled.)
+  //
+  // NOT ON A PHONE, on purpose. Focusing a text box on a touch device opens
+  // the on-screen keyboard, which swallows half the screen -- so opening a
+  // conversation would hide the conversation. The messages are the reason you
+  // opened it; the keyboard should appear when you decide to type. Instagram
+  // behaves the same way, and it is the same "(pointer: coarse)" test that
+  // decides whether Enter sends.
+  useEffect(() => {
+    if (loading || error) return
+    if (window.matchMedia('(pointer: coarse)').matches) return
+
+    // ?. because the box is not on the page at all while an error is showing,
+    // and a ref to something that was never drawn is null.
+    composerRef.current?.focus()
+  }, [loading, error, conversationId])
+
+  // --- coming back to the tab ------------------------------------------------
+  //
+  // Marks read anything that arrived while you were somewhere else. Without
+  // this, the visibility check in the live handler above is a rule with no
+  // second half: it correctly refuses to mark a message read while nobody is
+  // looking, and then nothing ever notices that somebody is looking again.
+  //
+  // Guarded by the ref rather than firing on every tab switch. Marking read
+  // when there is nothing unread is harmless -- the backend answers "marked 0"
+  // and tells nobody -- but a request on every switch between tabs, forever,
+  // for nothing, is not a thing to leave in.
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState !== 'visible') return
+      if (!arrivedWhileHiddenRef.current) return
+
+      arrivedWhileHiddenRef.current = false
+      api.post(`/conversations/${conversationId}/read`).catch(() => {})
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [conversationId])
 
@@ -256,14 +496,31 @@ export default function Chat() {
       )
 
       // Swap our placeholder for the server's version. The real id matters: it
-      // is the cursor for loading older messages, and in 16c it is how this
-      // same message is recognised when it arrives back down the live
-      // connection, so it is not drawn twice.
-      setMessages((current) =>
-        current.map((message) =>
+      // is the cursor for loading older messages, and it is how this same
+      // message is recognised when it arrives back down the live connection so
+      // it is not drawn twice.
+      //
+      // THE PUSH MAY HAVE BEATEN THIS REPLY. The server saves the message,
+      // pushes it, and then answers the POST -- and those two travel
+      // separately, so the pushed copy can land first. If it did, addMessage
+      // has already turned our placeholder into the real message, and mapping
+      // over tempId would find nothing while the real one is already there.
+      //
+      // So: if the saved message is already on screen, just make sure no
+      // placeholder is left beside it.
+      setMessages((current) => {
+        const alreadyDrawn = current.some(
+          (message) => message.id === response.data.id,
+        )
+
+        if (alreadyDrawn) {
+          return current.filter((message) => message.id !== tempId)
+        }
+
+        return current.map((message) =>
           message.id === tempId ? response.data : message,
-        ),
-      )
+        )
+      })
     } catch {
       setMessages((current) =>
         current.map((message) =>
@@ -273,6 +530,46 @@ export default function Chat() {
         ),
       )
     }
+  }
+
+  // ENTER SENDS. Shift+Enter starts a new line.
+  //
+  // WHY THIS IS NEEDED AT ALL, because it looks like the form should already
+  // handle it. In a <form>, pressing Enter inside an <input> submits it -- that
+  // is a browser rule, and it is why every other form in this app works without
+  // a line of key handling.
+  //
+  // A <textarea> is deliberately exempt from that rule. Enter inside one means
+  // "new line", because a textarea exists for text that has more than one line
+  // in it. So the composer here -- which is a textarea precisely so a message
+  // CAN have more than one line -- swallowed Enter and never sent anything.
+  //
+  // preventDefault() stops the newline that Enter would otherwise insert. Miss
+  // it and the message sends AND leaves a blank line behind in the box.
+  function handleKeyDown(event) {
+    if (event.key !== 'Enter' || event.shiftKey) return
+
+    // ON A PHONE, ENTER MUST STILL MEAN NEW LINE. A touch keyboard has no
+    // Shift+Enter to fall back on, so sending on Enter there would make a
+    // two-line message impossible to type -- and the Send button is right
+    // beside your thumb anyway, which is not true of a mouse.
+    //
+    // "(pointer: coarse)" is the browser's own way of saying "this is being
+    // pointed at with a finger rather than a mouse". Better than guessing from
+    // the screen width, which says nothing about how it is being touched.
+    if (window.matchMedia('(pointer: coarse)').matches) return
+
+    // COMPOSING. Typing Japanese, Chinese or Korean -- and using predictive
+    // input on many phone keyboards -- builds a character up over several key
+    // presses, and Enter CONFIRMS the one being built. Sending on that Enter
+    // would fire the message off mid-word, every time.
+    //
+    // isComposing is true only during that. It lives on nativeEvent because it
+    // belongs to the browser's own event, not to React's copy of it.
+    if (event.nativeEvent.isComposing) return
+
+    event.preventDefault()
+    handleSend(event)
   }
 
   function handleRetry(message) {
@@ -323,6 +620,30 @@ export default function Chat() {
           </Link>
         )}
       </header>
+
+      {/* WHEN THE LIVE CONNECTION IS DOWN, SAY SO.
+
+          Without this the chat does not look broken -- it looks quiet, which
+          is exactly the same thing on screen and completely different in
+          truth. Somebody sends a message, gets no reply, and concludes they
+          are being ignored.
+
+          Sending still works while this is showing, because messages are sent
+          with an ordinary request and only RECEIVED over the socket. So the
+          wording promises a delay, not a failure.
+
+          role="status" is what tells a screen reader to announce this when it
+          appears, rather than only finding it if the user happens to go
+          looking. shrink-0 so it does not get squeezed by the message list
+          growing. */}
+      {!loading && !error && !isConnected && (
+        <p
+          role="status"
+          className="shrink-0 bg-hover px-4 py-2 text-center text-tiny text-ink-muted"
+        >
+          Reconnecting... new messages may take a moment to appear.
+        </p>
+      )}
 
       {/* flex-1 makes this take all the space left between the header and the
           composer, and overflow-y-auto makes it the thing that scrolls -- not
@@ -394,8 +715,10 @@ export default function Chat() {
             rows=1 keeps it the height of a single line until it needs more. */}
         <textarea
           id="message-box"
+          ref={composerRef}
           value={text}
           onChange={(event) => setText(event.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Message..."
           rows={1}
           maxLength={2000}

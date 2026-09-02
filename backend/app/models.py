@@ -858,6 +858,21 @@ class Conversation(Base):
         """
         return self.user_b if self.user_a_id == me.id else self.user_a
 
+    def other_person_id(self, my_id: int) -> int:
+        """The id of the one who is NOT you, without loading either User.
+
+        ADDED IN PHASE 16c. other_person above returns a whole User, and
+        reading it makes SQLAlchemy run a SELECT to fetch that row. The live
+        connection only ever needs the id -- "push this to user 7" -- so
+        fetching the name, bio and avatar to read one number off it would be a
+        query per message sent.
+
+        A METHOD IS NOT A COLUMN. Nothing is stored for this and no migration
+        is needed; it is ordinary Python that happens to live on the class,
+        next to the two columns it reasons about.
+        """
+        return self.user_b_id if self.user_a_id == my_id else self.user_a_id
+
     __table_args__ = (
         # RULE ONE: this pair may only exist once.
         #

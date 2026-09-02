@@ -27,7 +27,12 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import Conversation, Message, User
-from app.schemas import ChatMessageOut, ConversationCreate, ConversationOut
+from app.schemas import (
+    ChatMessageOut,
+    ConversationCreate,
+    ConversationOut,
+    UnreadCountOut,
+)
 from app.users import get_user_by_username
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -316,6 +321,67 @@ def read_conversations(
     )
 
     return rows[:limit]
+
+
+@router.get(
+    "/unread-count",
+    response_model=UnreadCountOut,
+    summary="How many conversations have something unread in them",
+)
+def read_unread_count(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UnreadCountOut:
+    """The number on the badge in the header.
+
+    THE ORDER OF THIS FUNCTION IN THE FILE IS PART OF THE CODE. It must stay
+    ABOVE read_conversation below, and moving it costs an afternoon.
+
+    FastAPI tries routes in the order they were declared. "/{conversation_id}"
+    is declared below and matches ANY single segment -- including the word
+    "unread-count". Put this second and every request to /conversations/
+    unread-count is handed to that function instead, which tries to read
+    "unread-count" as a whole number, fails, and answers 422 with a complaint
+    about an integer nobody sent.
+
+    The rule generally: a fixed address always goes above a wildcard one.
+
+    COUNTED, NEVER STORED. The same rule as follower counts in PLAN.md. A
+    number kept somewhere and adjusted by hand drifts the first time anything
+    unexpected happens -- and a badge insisting there are two unread messages
+    when the inbox shows none is worse than no badge at all.
+    """
+    # COUNT(DISTINCT conversation_id) -- how many different threads have unread
+    # messages, not how many messages. Five messages in one chat is one row of
+    # your inbox wanting attention, so it counts once.
+    #
+    # sender_id != me is not optional. Without it, every conversation you have
+    # ever written in wears a badge for your own messages, and nothing you do
+    # clears it.
+    unread_conversations = (
+        db.scalar(
+            select(func.count(func.distinct(Message.conversation_id))).where(
+                # Limited to your own conversations, and this is a permission
+                # check, not a tidy-up. Without it the count would include
+                # unread messages in threads that are nothing to do with you --
+                # which would tell you exactly how much other people are
+                # talking, on every screen in the app.
+                Message.conversation_id.in_(
+                    select(Conversation.id).where(
+                        or_(
+                            Conversation.user_a_id == current_user.id,
+                            Conversation.user_b_id == current_user.id,
+                        )
+                    )
+                ),
+                Message.sender_id != current_user.id,
+                Message.read_at.is_(None),
+            )
+        )
+        or 0
+    )
+
+    return UnreadCountOut(unread_conversations=unread_conversations)
 
 
 @router.get(
