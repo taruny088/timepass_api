@@ -1,8 +1,9 @@
 # How to work with me
 
-**Current work: PHASE 16 — messaging. 16a and 16b are done and pushed. 16c (the
-WebSocket) is built, tested locally and pushed — still owed: the test on the
-LIVE address, including on a phone. Phase 16 is not finished until that passes.**
+**PHASE 16 IS DONE AND LIVE — all three sittings, tested on the live address
+including on a phone, 2 September 2026. Messages arrive without refreshing.
+Next: PHASE 15, activity and privacy (notifications and private accounts).
+After that Phase 14, then optionally 17 — see the phase table in PLAN2.md.**
 
 **Phase 16c decisions, made 2 September 2026 — do not re-litigate by accident.**
 - SEND OVER HTTP, RECEIVE OVER THE SOCKET. Messages are still sent with the

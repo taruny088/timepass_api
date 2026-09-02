@@ -75,8 +75,8 @@ Six phases, one optional. Each covers a complete area, so related work happens t
 | 11 | The entire interface | Large — split into three sittings | done |
 | 12 | Photos and uploads | Medium | done |
 | 13 | Account and profile | Medium | done |
-| 16 | Messaging | Large — split into three sittings | **in progress — 16a done** |
-| 15 | Activity and privacy | Medium | |
+| 16 | Messaging | Large — split into three sittings | done |
+| 15 | Activity and privacy | Medium | **next** |
 | 14 | Finding things | Medium | moved to last — see below |
 | 17 | Stories | Optional | |
 
